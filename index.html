@@ -20,15 +20,41 @@
     const { useState, useEffect } = React;
 
     // ==========================================
-    // ★ オーパーツ固定リスト（20種 × 4グレード）
+    // ★ オーパーツの表記揺れ吸収用辞書
+    // SchaleDBの名前と、アプリで表示する統一名を結びつけます
     // ==========================================
+    const OOPARTS_BASENAMES = {
+      "ネブラディスク": "ネブラディスク",
+      "ファイストス円盤": "ファイストス円盤",
+      "ヴォルフスエック": "ヴォルフスエック鉄鋼", // 「鉄鉱石」等の表記揺れをすべてこれに統一
+      "ニムルドレンズ": "ニムルドレンズ",
+      "マンドレイク": "マンドレイク",
+      "レヒニッツ写本": "レヒニッツ写本",
+      "エーテル": "エーテル",
+      "アンティキティラ装置": "アンティキティラ装置",
+      "ヴォイニッチ手稿": "ヴォイニッチ手稿",
+      "水晶埴輪": "水晶埴輪",
+      "トーテムポール": "トーテムポール",
+      "古代の電池": "古代の電池",
+      "黄金の糸": "黄金の糸",
+      "髪伸び人形": "髪伸び人形",
+      "円盤型ペンダント": "円盤型ペンダント",
+      "古代文明のメダル": "古代文明のメダル",
+      "中空十二面体": "中空十二面体",
+      "黄金シャトル": "黄金シャトル",
+      "古代ロケット": "古代ロケット",
+      "ミステリーストーン": "ミステリーストーン"
+    };
+
+    // アプリ内で表示に使う20種のリスト（並び順用）
     const OOPARTS_LIST = [
-      "ネブラディスク", "ファイストス円盤", "ヴォルフスエック鉄鉱", "ニムルドレンズ", 
+      "ネブラディスク", "ファイストス円盤", "ヴォルフスエック鉄鋼", "ニムルドレンズ", 
       "マンドレイク", "レヒニッツ写本", "エーテル", "アンティキティラ装置", 
       "ヴォイニッチ手稿", "水晶埴輪", "トーテムポール", "古代の電池", 
       "黄金の糸", "髪伸び人形", "円盤型ペンダント", "古代文明のメダル", 
       "中空十二面体", "黄金シャトル", "古代ロケット", "ミステリーストーン"
     ];
+    
     const GRADES = ["初級", "中級", "上級", "最上級"];
 
     const firebaseConfig = {
@@ -97,11 +123,11 @@
             
             const itemDict = {};
             itemsData.forEach(item => {
-              // オーパーツのベース名が含まれているか確認
-              const baseName = OOPARTS_LIST.find(oopart => item.Name.includes(oopart));
+              // オーパーツのベース名が含まれているか確認（表記揺れを吸収）
+              const matchKey = Object.keys(OOPARTS_BASENAMES).find(key => item.Name.includes(key));
               
               // ノートやBDを除外し、オーパーツのみを抽出
-              if (baseName && !item.Name.includes("ノート") && !item.Name.includes("BD") && !item.Name.includes("教育")) {
+              if (matchKey && !item.Name.includes("ノート") && !item.Name.includes("BD") && !item.Name.includes("教育")) {
                 let grade = "";
                 if (item.Rarity === "N") grade = "初級";
                 else if (item.Rarity === "R") grade = "中級";
@@ -109,8 +135,9 @@
                 else if (item.Rarity === "SSR") grade = "最上級";
                 
                 if (grade) {
-                  // 「初級ネブラディスク」のようにアプリ用の名前に変換して保存
-                  itemDict[item.Id] = grade + baseName;
+                  // 表記揺れを統一されたアプリ名称（例: 初級ヴォルフスエック鉄鋼）に変換して保存
+                  const unifiedName = OOPARTS_BASENAMES[matchKey];
+                  itemDict[item.Id] = grade + unifiedName;
                 }
               }
             });
@@ -118,9 +145,8 @@
             const newMaster = {};
             
             studentsData.forEach(s => {
-              // Schale DBのIsReleasedは配列(例: [true, false]でJPのみ実装)の場合があるため、正確にJPの実装状況を判定
-              const isReleased = Array.isArray(s.IsReleased) ? s.IsReleased[0] : s.IsReleased;
-              if (!isReleased || !s.SkillExMaterial) return;
+              // 修正点: IsReleased の判定を外し、「スキル素材データが存在する生徒」なら全て許可
+              if (!s.SkillExMaterial || s.SkillExMaterial.length === 0) return;
               
               const studentName = s.Name;
               const exRequirements = {};
