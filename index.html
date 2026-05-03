@@ -25,6 +25,8 @@
     // 「Other」は、ノーマル・パッシブ・サブスキルの共通消費テーブルです。
     // ==========================================
     const STUDENT_MASTER = {
+
+      // ========== あ行 ==========
       "アスナ（制服）": {
         EX: {
           3: { "初級アンティキティラ装置": 32 }, // EX 2→3 で消費
@@ -38,6 +40,12 @@
           9: { "上級アンティキティラ装置": 13 }  // その他 8→9 で消費
         }
       },
+
+      // ========== か行 ==========
+      // （ここにか行の生徒データを追加します）
+
+
+      // ========== さ行 ==========
       "シロコ": {
         EX: {
           2: { "初級ネブラディスク": 12 },
@@ -49,7 +57,35 @@
           2: { "初級ネブラディスク": 5 },
           5: { "中級ネブラディスク": 10 }
         }
-      }
+      },
+
+      // ========== た行 ==========
+      // （ここにた行の生徒データを追加します）
+
+
+      // ========== な行 ==========
+      // （ここにな行の生徒データを追加します）
+
+
+      // ========== は行 ==========
+      // （ここには行の生徒データを追加します）
+
+
+      // ========== ま行 ==========
+      // （ここにま行の生徒データを追加します）
+
+
+      // ========== や行 ==========
+      // （ここにや行の生徒データを追加します）
+
+
+      // ========== ら行 ==========
+      // （ここにら行の生徒データを追加します）
+
+
+      // ========== わ行 ==========
+      // （ここにわ行の生徒データを追加します）
+
     };
 
     // Firebaseの初期化設定
@@ -114,7 +150,7 @@
 
     function App() {
       const [user, setUser] = useState(null);
-      const [activeTab, setActiveTab] = useState('dashboard');
+      const [activeTab, setActiveTab] = useState('inventory'); // 所持数タブを初期表示に変更
       const [students, setStudents] = useState([]);
       const [inventory, setInventory] = useState([]);
       
@@ -195,6 +231,12 @@
         }
       };
 
+      // 所持品削除（手動追加分を消すための関数）
+      const deleteInventoryItem = async (itemId) => {
+        if (!user || !window.confirm("このデータを削除しますか？")) return;
+        await db.doc(`${getCollectionPath(user.uid, 'inventory')}/${itemId}`).delete();
+      };
+
       // 集計処理
       const dashboardData = () => {
         const totals = {};
@@ -215,6 +257,39 @@
         });
         return data.sort((a, b) => a.difference - b.difference);
       };
+
+      // === 所持数リストの生成ロジック ===
+      // マスターデータから全オーパーツ名を自動抽出
+      const masterMaterials = Array.from(new Set(
+        Object.values(STUDENT_MASTER).flatMap(student => [
+          ...Object.values(student.EX || {}).flatMap(reqs => Object.keys(reqs)),
+          ...Object.values(student.Other || {}).flatMap(reqs => Object.keys(reqs))
+        ])
+      )).sort((a, b) => a.localeCompare(b, 'ja'));
+
+      // 所持品表示用リスト
+      const inventoryDisplayList = masterMaterials.map(name => {
+        const invItem = inventory.find(i => i.name === name);
+        return {
+          id: invItem ? invItem.id : null,
+          name: name,
+          count: invItem ? invItem.count : 0,
+          isMaster: true
+        };
+      });
+
+      // データベース上に存在するがマスターにないもの（間違えて登録したものなど）を追加
+      inventory.forEach(invItem => {
+        if (!masterMaterials.includes(invItem.name)) {
+          inventoryDisplayList.push({
+            id: invItem.id,
+            name: invItem.name,
+            count: invItem.count,
+            isMaster: false
+          });
+        }
+      });
+
 
       if (!user) return <div className="flex h-screen items-center justify-center bg-blue-50 text-blue-900">接続中...</div>;
 
@@ -351,38 +426,45 @@
               <div>
                 <h2 className="text-lg font-bold mb-4 text-gray-700">現在の所持数入力</h2>
                 <div className="bg-white p-4 rounded-lg shadow mb-6">
-                  <form onSubmit={(e) => {
-                    e.preventDefault();
-                    const name = e.target.matName.value;
-                    const count = parseInt(e.target.matCount.value, 10);
-                    if (name && !isNaN(count)) { updateInventory(name, count); e.target.reset(); }
-                  }} className="flex gap-2">
-                    {/* ここを「初級」などを含めた入力にするようにプレースホルダーを変更 */}
-                    <input required name="matName" type="text" placeholder="例: 初級アンティキティラ装置" className="flex-1 border rounded p-2 text-sm bg-gray-50" />
-                    <input required name="matCount" type="number" min="0" placeholder="所持数" className="w-24 border rounded p-2 text-sm bg-gray-50" />
-                    <button type="submit" className="bg-gray-800 text-white px-4 py-2 rounded text-sm">保存</button>
-                  </form>
+                  <p className="text-sm text-gray-600 mb-2">オーパーツの所持数を入力してください。</p>
+                  <p className="text-xs text-gray-500">※ここにはプログラムに登録されたオーパーツが自動で一覧表示されます。自分で新しく種類を追加することはできません。</p>
                 </div>
 
                 <div className="bg-white rounded-lg shadow overflow-hidden">
                   <ul className="divide-y">
-                    {inventory.map(item => (
-                      <li key={item.id} className="flex justify-between items-center p-4 hover:bg-gray-50">
-                        <span className="font-medium text-sm">{item.name}</span>
-                        <div className="flex items-center gap-2">
-                          <input 
-                            type="number" min="0" defaultValue={item.count}
-                            onBlur={(e) => {
-                              const newCount = parseInt(e.target.value, 10);
-                              if (!isNaN(newCount) && newCount !== item.count) updateInventory(item.name, newCount);
-                            }}
-                            className="w-20 border rounded p-1 text-right text-sm"
-                          />
-                        </div>
-                      </li>
-                    ))}
+                    {inventoryDisplayList.length === 0 ? (
+                      <li className="p-6 text-center text-gray-400 text-sm">オーパーツデータがありません。</li>
+                    ) : (
+                      inventoryDisplayList.map((item, idx) => (
+                        <li key={item.id || `mat-${idx}`} className={`flex justify-between items-center p-4 hover:bg-gray-50 ${!item.isMaster ? 'bg-red-50' : ''}`}>
+                          <span className="font-medium text-sm flex items-center gap-2">
+                            {item.name}
+                            {!item.isMaster && <span className="text-xs bg-red-200 text-red-700 px-2 py-0.5 rounded-full">手動追加分</span>}
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <input 
+                              type="number" min="0" defaultValue={item.count}
+                              onBlur={(e) => {
+                                const newCount = parseInt(e.target.value, 10);
+                                if (!isNaN(newCount) && newCount !== item.count) updateInventory(item.name, newCount);
+                              }}
+                              className="w-20 border rounded p-1 text-right text-sm"
+                            />
+                            <span className="text-gray-500 text-sm">個</span>
+                            
+                            {/* 手動追加された不要なデータ（ネブラ等）を消すためのゴミ箱ボタン */}
+                            {!item.isMaster && item.id && (
+                              <button onClick={() => deleteInventoryItem(item.id)} className="text-red-400 hover:text-red-600 p-1 ml-2" title="削除">
+                                <IconTrash />
+                              </button>
+                            )}
+                          </div>
+                        </li>
+                      ))
+                    )}
                   </ul>
                 </div>
+                <p className="text-xs text-gray-500 mt-2">※数値を変更して枠外をタップすると自動で保存されます。</p>
               </div>
             )}
           </main>
