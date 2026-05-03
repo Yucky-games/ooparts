@@ -1,406 +1,257 @@
-import React, { useState, useEffect } from 'react';
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from 'firebase/auth';
-import { getFirestore, collection, onSnapshot, doc, setDoc, deleteDoc, addDoc } from 'firebase/firestore';
-import { Plus, Trash2, Save, User, Package, BarChart3 } from 'lucide-react';
-
-// ==========================================
-// 1. Firebaseの初期化設定
-// ※ あなたのGitHub Pagesで動かす際は、ここの 'fallbackConfig' の中身を
-//    Firebaseコンソールで取得した自分の情報に書き換えてください！
-// ==========================================
-const firebaseConfig = {
-  apiKey: "AIzaSyAlm6ETTvRL1zlTMhAznbqYlh9NXThIZS0",
-  authDomain: "ba-materials-app.firebaseapp.com",
-  projectId: "ba-materials-app",
-  storageBucket: "ba-materials-app.firebasestorage.app",
-  messagingSenderId: "488191018366",
-  appId: "1:488191018366:web:9bffda0a35b36c0af65f2f",
-  measurementId: "G-70TKE1BMCY"
-};
-
-// Canvas環境（このプレビュー画面）用の特殊処理
-const isCanvas = typeof __firebase_config !== 'undefined';
-const config = isCanvas ? JSON.parse(__firebase_config) : fallbackConfig;
-const app = initializeApp(config);
-const auth = getAuth(app);
-const db = getFirestore(app);
-const canvasAppId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
-// データを保存する場所（パス）を決定する関数
-const getCollectionPath = (userId, colName) => {
-  if (isCanvas) {
-    return `artifacts/${canvasAppId}/users/${userId}/${colName}`;
-  } else {
-    // 実際にあなたがデプロイした時は、シンプルな階層になります
-    return `users/${userId}/${colName}`;
-  }
-};
-
-export default function BAMaterialsApp() {
-  const [user, setUser] = useState(null);
-  const [activeTab, setActiveTab] = useState('dashboard'); // 'students', 'inventory', 'dashboard'
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ブルアカ オーパーツ管理</title>
   
-  // データ用の状態
-  const [students, setStudents] = useState([]);
-  const [inventory, setInventory] = useState([]);
+  <!-- 1. 見た目を整えるための Tailwind CSS を読み込み -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- 2. React をブラウザ上で動かすための仕組みを読み込み -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
-  // ==========================================
-  // 2. 認証（ログイン）処理
-  // ==========================================
-  useEffect(() => {
-    const initAuth = async () => {
-      try {
-        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-          await signInWithCustomToken(auth, __initial_auth_token);
-        } else {
-          // 匿名ログイン（アカウントを作らなくても端末ごとのIDが割り当てられます）
-          await signInAnonymously(auth);
-        }
-      } catch (error) {
-        console.error("Auth error:", error);
-      }
+  <!-- 3. Firebase をブラウザ上で動かすための仕組みを読み込み (Compat版) -->
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+</head>
+<body>
+  <!-- アプリが表示される場所 -->
+  <div id="root"></div>
+
+  <!-- ここから下がアプリの動作を定義するコードです -->
+  <script type="text/babel">
+    const { useState, useEffect } = React;
+
+    // ==========================================
+    // Firebaseの初期化設定 (あなたの設定を組み込みました)
+    // ==========================================
+    const firebaseConfig = {
+      apiKey: "AIzaSyAlm6ETTvRL1zlTMhAznbqYlh9NXThIZS0",
+      authDomain: "ba-materials-app.firebaseapp.com",
+      projectId: "ba-materials-app",
+      storageBucket: "ba-materials-app.firebasestorage.app",
+      messagingSenderId: "488191018366",
+      appId: "1:488191018366:web:9bffda0a35b36c0af65f2f",
+      measurementId: "G-70TKE1BMCY"
     };
-    initAuth();
 
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  // ==========================================
-  // 3. データの取得（リアルタイム同期）
-  // ==========================================
-  useEffect(() => {
-    if (!user) return; // ログイン完了まで待つ
-
-    // 生徒データの取得（監視）
-    const studentsRef = collection(db, getCollectionPath(user.uid, 'students'));
-    const unsubStudents = onSnapshot(studentsRef, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setStudents(data);
-    }, (error) => {
-      console.error("生徒データの取得エラー:", error);
-    });
-
-    // 所持品データの取得（監視）
-    const inventoryRef = collection(db, getCollectionPath(user.uid, 'inventory'));
-    const unsubInventory = onSnapshot(inventoryRef, (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setInventory(data);
-    }, (error) => {
-      console.error("所持品データの取得エラー:", error);
-    });
-
-    // クリーンアップ関数（コンポーネントが消える時に監視をやめる）
-    return () => {
-      unsubStudents();
-      unsubInventory();
-    };
-  }, [user]);
-
-  // ==========================================
-  // 4. データ操作関数
-  // ==========================================
-
-  // 新しい生徒を追加
-  const addStudent = async () => {
-    if (!user) return;
-    const name = prompt("生徒名を入力してください:");
-    if (!name) return;
-    
-    const studentsRef = collection(db, getCollectionPath(user.uid, 'students'));
-    await addDoc(studentsRef, {
-      name: name,
-      requiredMaterials: [] // 最初は空の必要素材リスト
-    });
-  };
-
-  // 生徒の削除
-  const deleteStudent = async (studentId) => {
-    if (!user || !window.confirm("この生徒を削除しますか？")) return;
-    const docRef = doc(db, getCollectionPath(user.uid, 'students'), studentId);
-    await deleteDoc(docRef);
-  };
-
-  // 生徒に必要素材を追加
-  const addMaterialRequirement = async (student) => {
-    if (!user) return;
-    const matName = prompt("必要なオーパーツ名を入力:");
-    if (!matName) return;
-    const countStr = prompt("必要な数を入力:");
-    const count = parseInt(countStr, 10);
-    if (isNaN(count)) return;
-
-    const newRequirements = [...student.requiredMaterials, { name: matName, count: count }];
-    const docRef = doc(db, getCollectionPath(user.uid, 'students'), student.id);
-    await setDoc(docRef, { ...student, requiredMaterials: newRequirements });
-  };
-
-  // 生徒から必要素材を削除
-  const removeMaterialRequirement = async (student, reqIndex) => {
-    if (!user) return;
-    const newRequirements = student.requiredMaterials.filter((_, idx) => idx !== reqIndex);
-    const docRef = doc(db, getCollectionPath(user.uid, 'students'), student.id);
-    await setDoc(docRef, { ...student, requiredMaterials: newRequirements });
-  };
-
-  // 所持品の更新（追加または上書き）
-  const updateInventory = async (matName, count) => {
-    if (!user) return;
-    if (count < 0) count = 0;
-    
-    // 所持品コレクションから、同じ名前のドキュメントを探す
-    const existingItem = inventory.find(i => i.name === matName);
-    
-    if (existingItem) {
-      // 既存なら更新
-      const docRef = doc(db, getCollectionPath(user.uid, 'inventory'), existingItem.id);
-      await setDoc(docRef, { name: matName, count: count });
-    } else {
-      // 新規なら追加
-      const inventoryRef = collection(db, getCollectionPath(user.uid, 'inventory'));
-      await addDoc(inventoryRef, { name: matName, count: count });
+    // Firebaseの起動
+    if (!firebase.apps.length) {
+      firebase.initializeApp(firebaseConfig);
     }
-  };
+    const auth = firebase.auth();
+    const db = firebase.firestore();
 
-  // ==========================================
-  // 5. データ集計（ダッシュボード用）
-  // ==========================================
-  // 生徒全員の「必要なオーパーツ」を名前ごとに合計する
-  const calculateTotalRequirements = () => {
-    const totals = {};
-    students.forEach(student => {
-      student.requiredMaterials?.forEach(req => {
-        if (!totals[req.name]) {
-          totals[req.name] = 0;
-        }
-        totals[req.name] += req.count;
-      });
-    });
-    return totals;
-  };
+    // データを保存する場所（パス）
+    const getCollectionPath = (userId, colName) => `users/${userId}/${colName}`;
 
-  // 必要数と所持数を比較したリストを作成
-  const dashboardData = () => {
-    const requirements = calculateTotalRequirements();
-    const data = [];
+    // アイコンの定義 (Lucideの代わりにSVGを直接記述しています)
+    const IconChart = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>;
+    const IconUser = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>;
+    const IconPackage = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>;
+    const IconPlus = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>;
+    const IconTrash = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>;
 
-    // 必要とされている全オーパーツについて計算
-    Object.keys(requirements).forEach(matName => {
-      const requiredCount = requirements[matName];
-      const inventoryItem = inventory.find(i => i.name === matName);
-      const ownedCount = inventoryItem ? inventoryItem.count : 0;
-      const difference = ownedCount - requiredCount;
 
-      data.push({
-        name: matName,
-        required: requiredCount,
-        owned: ownedCount,
-        difference: difference
-      });
-    });
+    // ==========================================
+    // アプリ本体のコンポーネント
+    // ==========================================
+    function App() {
+      const [user, setUser] = useState(null);
+      const [activeTab, setActiveTab] = useState('dashboard');
+      
+      const [students, setStudents] = useState([]);
+      const [inventory, setInventory] = useState([]);
 
-    // 不足分が多い（differenceがマイナスで値が小さい）順に並び替え
-    return data.sort((a, b) => a.difference - b.difference);
-  };
+      // ログイン処理とデータのリアルタイム取得
+      useEffect(() => {
+        // 匿名ログイン
+        auth.signInAnonymously().catch(err => console.error("Login Error:", err));
 
-  // ==========================================
-  // UI レンダリング部分
-  // ==========================================
-  if (!user) {
-    return <div className="flex h-screen items-center justify-center bg-blue-50 text-blue-900">読み込み中...</div>;
-  }
+        const unsubscribeAuth = auth.onAuthStateChanged((currentUser) => {
+          setUser(currentUser);
+          
+          if (currentUser) {
+            // 生徒データの監視
+            const unsubStudents = db.collection(getCollectionPath(currentUser.uid, 'students'))
+              .onSnapshot(snapshot => {
+                const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                setStudents(data);
+              });
 
-  return (
-    <div className="flex flex-col h-screen bg-gray-50 text-gray-800 font-sans">
-      {/* ヘッダー */}
-      <header className="bg-blue-600 text-white p-4 shadow-md flex justify-between items-center">
-        <h1 className="text-xl font-bold">ブルアカ オーパーツ管理</h1>
-        <div className="text-sm opacity-80">ID: {user.uid.substring(0, 5)}...</div>
-      </header>
+            // 所持品データの監視
+            const unsubInventory = db.collection(getCollectionPath(currentUser.uid, 'inventory'))
+              .onSnapshot(snapshot => {
+                const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+                setInventory(data);
+              });
 
-      {/* タブナビゲーション */}
-      <div className="flex bg-white shadow-sm border-b">
-        <button
-          onClick={() => setActiveTab('dashboard')}
-          className={`flex-1 p-3 flex justify-center items-center gap-2 border-b-2 transition-colors ${activeTab === 'dashboard' ? 'border-blue-600 text-blue-600 font-bold' : 'border-transparent text-gray-500 hover:bg-gray-50'}`}
-        >
-          <BarChart3 size={18} /> 不足確認
-        </button>
-        <button
-          onClick={() => setActiveTab('students')}
-          className={`flex-1 p-3 flex justify-center items-center gap-2 border-b-2 transition-colors ${activeTab === 'students' ? 'border-blue-600 text-blue-600 font-bold' : 'border-transparent text-gray-500 hover:bg-gray-50'}`}
-        >
-          <User size={18} /> 育成目標
-        </button>
-        <button
-          onClick={() => setActiveTab('inventory')}
-          className={`flex-1 p-3 flex justify-center items-center gap-2 border-b-2 transition-colors ${activeTab === 'inventory' ? 'border-blue-600 text-blue-600 font-bold' : 'border-transparent text-gray-500 hover:bg-gray-50'}`}
-        >
-          <Package size={18} /> 所持数
-        </button>
-      </div>
+            return () => {
+              unsubStudents();
+              unsubInventory();
+            };
+          }
+        });
 
-      {/* メインコンテンツ */}
-      <main className="flex-1 overflow-y-auto p-4 max-w-3xl mx-auto w-full">
+        return () => unsubscribeAuth();
+      }, []);
+
+      // 生徒追加
+      const addStudent = async () => {
+        if (!user) return;
+        const name = prompt("生徒名を入力してください:");
+        if (!name) return;
+        await db.collection(getCollectionPath(user.uid, 'students')).add({
+          name: name,
+          requiredMaterials: []
+        });
+      };
+
+      // 生徒削除
+      const deleteStudent = async (studentId) => {
+        if (!user || !window.confirm("この生徒を削除しますか？")) return;
+        await db.doc(`${getCollectionPath(user.uid, 'students')}/${studentId}`).delete();
+      };
+
+      // 必要素材追加
+      const addMaterialRequirement = async (student) => {
+        if (!user) return;
+        const matName = prompt("必要なオーパーツ名を入力:");
+        if (!matName) return;
+        const countStr = prompt("必要な数を入力:");
+        const count = parseInt(countStr, 10);
+        if (isNaN(count)) return;
+
+        const newRequirements = [...(student.requiredMaterials || []), { name: matName, count: count }];
+        await db.doc(`${getCollectionPath(user.uid, 'students')}/${student.id}`).update({
+          requiredMaterials: newRequirements
+        });
+      };
+
+      // 必要素材削除
+      const removeMaterialRequirement = async (student, reqIndex) => {
+        if (!user) return;
+        const newRequirements = student.requiredMaterials.filter((_, idx) => idx !== reqIndex);
+        await db.doc(`${getCollectionPath(user.uid, 'students')}/${student.id}`).update({
+          requiredMaterials: newRequirements
+        });
+      };
+
+      // 所持品更新
+      const updateInventory = async (matName, count) => {
+        if (!user) return;
+        if (count < 0) count = 0;
         
-        {/* === ダッシュボード（不足確認）タブ === */}
-        {activeTab === 'dashboard' && (
-          <div className="animate-fade-in">
-            <h2 className="text-lg font-bold mb-4 text-gray-700">オーパーツ過不足一覧</h2>
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-gray-100 text-gray-600 text-sm">
-                    <th className="p-3 border-b">オーパーツ名</th>
-                    <th className="p-3 border-b text-right">必要数</th>
-                    <th className="p-3 border-b text-right">所持数</th>
-                    <th className="p-3 border-b text-right">差分 (不足)</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {dashboardData().length === 0 ? (
-                    <tr><td colSpan="4" className="p-6 text-center text-gray-400">データがありません。育成目標を入力してください。</td></tr>
-                  ) : (
-                    dashboardData().map((item, idx) => (
-                      <tr key={idx} className="border-b hover:bg-gray-50">
-                        <td className="p-3 font-medium">{item.name}</td>
-                        <td className="p-3 text-right">{item.required}</td>
-                        <td className="p-3 text-right text-blue-600 font-semibold">{item.owned}</td>
-                        <td className={`p-3 text-right font-bold ${item.difference < 0 ? 'text-red-500' : 'text-green-500'}`}>
-                          {item.difference < 0 ? item.difference : `+${item.difference}`}
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-            <p className="text-xs text-gray-500 mt-4 text-center">
-              ※差分がマイナス（赤字）のアイテムが不足しています。
-            </p>
+        const existingItem = inventory.find(i => i.name === matName);
+        if (existingItem) {
+          await db.doc(`${getCollectionPath(user.uid, 'inventory')}/${existingItem.id}`).update({ count: count });
+        } else {
+          await db.collection(getCollectionPath(user.uid, 'inventory')).add({ name: matName, count: count });
+        }
+      };
+
+      // 集計処理
+      const dashboardData = () => {
+        const totals = {};
+        students.forEach(student => {
+          student.requiredMaterials?.forEach(req => {
+            if (!totals[req.name]) totals[req.name] = 0;
+            totals[req.name] += req.count;
+          });
+        });
+
+        const data = [];
+        Object.keys(totals).forEach(matName => {
+          const requiredCount = totals[matName];
+          const inventoryItem = inventory.find(i => i.name === matName);
+          const ownedCount = inventoryItem ? inventoryItem.count : 0;
+          const difference = ownedCount - requiredCount;
+          data.push({ name: matName, required: requiredCount, owned: ownedCount, difference: difference });
+        });
+
+        return data.sort((a, b) => a.difference - b.difference);
+      };
+
+      if (!user) {
+        return <div className="flex h-screen items-center justify-center bg-blue-50 text-blue-900">データベースへ接続中...</div>;
+      }
+
+      return (
+        <div className="flex flex-col h-screen bg-gray-50 text-gray-800 font-sans">
+          {/* ヘッダー */}
+          <header className="bg-blue-600 text-white p-4 shadow-md flex justify-between items-center">
+            <h1 className="text-xl font-bold">ブルアカ オーパーツ管理</h1>
+            <div className="text-sm opacity-80">ID: {user.uid.substring(0, 5)}...</div>
+          </header>
+
+          {/* タブナビゲーション */}
+          <div className="flex bg-white shadow-sm border-b">
+            <button
+              onClick={() => setActiveTab('dashboard')}
+              className={`flex-1 p-3 flex justify-center items-center gap-2 border-b-2 transition-colors ${activeTab === 'dashboard' ? 'border-blue-600 text-blue-600 font-bold' : 'border-transparent text-gray-500 hover:bg-gray-50'}`}
+            >
+              <IconChart /> 不足確認
+            </button>
+            <button
+              onClick={() => setActiveTab('students')}
+              className={`flex-1 p-3 flex justify-center items-center gap-2 border-b-2 transition-colors ${activeTab === 'students' ? 'border-blue-600 text-blue-600 font-bold' : 'border-transparent text-gray-500 hover:bg-gray-50'}`}
+            >
+              <IconUser /> 育成目標
+            </button>
+            <button
+              onClick={() => setActiveTab('inventory')}
+              className={`flex-1 p-3 flex justify-center items-center gap-2 border-b-2 transition-colors ${activeTab === 'inventory' ? 'border-blue-600 text-blue-600 font-bold' : 'border-transparent text-gray-500 hover:bg-gray-50'}`}
+            >
+              <IconPackage /> 所持数
+            </button>
           </div>
-        )}
 
-        {/* === 育成目標（生徒）タブ === */}
-        {activeTab === 'students' && (
-          <div className="animate-fade-in">
-            <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-bold text-gray-700">育成する生徒一覧</h2>
-              <button 
-                onClick={addStudent}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-1 text-sm transition-colors"
-              >
-                <Plus size={16} /> 生徒追加
-              </button>
-            </div>
-
-            <div className="space-y-4">
-              {students.length === 0 ? (
-                <div className="text-center p-8 bg-white rounded-lg shadow-sm text-gray-400">
-                  「生徒追加」ボタンから育成したい生徒を登録してください
-                </div>
-              ) : (
-                students.map(student => (
-                  <div key={student.id} className="bg-white p-4 rounded-lg shadow border border-gray-100">
-                    <div className="flex justify-between items-center mb-3 border-b pb-2">
-                      <h3 className="font-bold text-lg text-blue-900">{student.name}</h3>
-                      <button onClick={() => deleteStudent(student.id)} className="text-red-400 hover:text-red-600 p-1">
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <div className="text-sm text-gray-500 mb-1">目標達成に必要なオーパーツ:</div>
-                      {student.requiredMaterials?.map((req, idx) => (
-                        <div key={idx} className="flex justify-between items-center bg-gray-50 p-2 rounded text-sm">
-                          <span>{req.name}</span>
-                          <div className="flex items-center gap-3">
-                            <span className="font-semibold">{req.count} 個</span>
-                            <button onClick={() => removeMaterialRequirement(student, idx)} className="text-gray-400 hover:text-red-500">
-                              ✕
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                      <button 
-                        onClick={() => addMaterialRequirement(student)}
-                        className="w-full mt-2 py-2 border border-dashed border-blue-300 text-blue-500 rounded text-sm hover:bg-blue-50 transition-colors"
-                      >
-                        + 必要素材を追加
-                      </button>
-                    </div>
-                  </div>
-                ))
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* === 所持数入力タブ === */}
-        {activeTab === 'inventory' && (
-          <div className="animate-fade-in">
-            <h2 className="text-lg font-bold mb-4 text-gray-700">現在の所持数入力</h2>
+          {/* メインコンテンツ */}
+          <main className="flex-1 overflow-y-auto p-4 max-w-3xl mx-auto w-full">
             
-            {/* 新規所持品追加フォーム */}
-            <div className="bg-white p-4 rounded-lg shadow mb-6">
-              <h3 className="text-sm text-gray-500 mb-2">所持オーパーツを記録</h3>
-              <form 
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  const name = e.target.matName.value;
-                  const count = parseInt(e.target.matCount.value, 10);
-                  if (name && !isNaN(count)) {
-                    updateInventory(name, count);
-                    e.target.reset();
-                  }
-                }}
-                className="flex gap-2"
-              >
-                <input required name="matName" type="text" placeholder="オーパーツ名 (例: ネブラディスク)" className="flex-1 border rounded p-2 text-sm" />
-                <input required name="matCount" type="number" min="0" placeholder="所持数" className="w-24 border rounded p-2 text-sm" />
-                <button type="submit" className="bg-gray-800 text-white px-4 py-2 rounded text-sm hover:bg-gray-900">
-                  保存
-                </button>
-              </form>
-            </div>
+            {/* ダッシュボード（不足確認）タブ */}
+            {activeTab === 'dashboard' && (
+              <div>
+                <h2 className="text-lg font-bold mb-4 text-gray-700">オーパーツ過不足一覧</h2>
+                <div className="bg-white rounded-lg shadow overflow-hidden">
+                  <table className="w-full text-left border-collapse">
+                    <thead>
+                      <tr className="bg-gray-100 text-gray-600 text-sm">
+                        <th className="p-3 border-b">オーパーツ名</th>
+                        <th className="p-3 border-b text-right">必要数</th>
+                        <th className="p-3 border-b text-right">所持数</th>
+                        <th className="p-3 border-b text-right">差分 (不足)</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {dashboardData().length === 0 ? (
+                        <tr><td colSpan="4" className="p-6 text-center text-gray-400">データがありません。育成目標を入力してください。</td></tr>
+                      ) : (
+                        dashboardData().map((item, idx) => (
+                          <tr key={idx} className="border-b hover:bg-gray-50">
+                            <td className="p-3 font-medium">{item.name}</td>
+                            <td className="p-3 text-right">{item.required}</td>
+                            <td className="p-3 text-right text-blue-600 font-semibold">{item.owned}</td>
+                            <td className={`p-3 text-right font-bold ${item.difference < 0 ? 'text-red-500' : 'text-green-500'}`}>
+                              {item.difference < 0 ? item.difference : `+${item.difference}`}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-xs text-gray-500 mt-4 text-center">※差分がマイナス（赤字）のアイテムが不足しています。</p>
+              </div>
+            )}
 
-            {/* 所持品リスト */}
-            <div className="bg-white rounded-lg shadow overflow-hidden">
-              {inventory.length === 0 ? (
-                <div className="p-6 text-center text-gray-400 text-sm">所持品が登録されていません。上のフォームから追加してください。</div>
-              ) : (
-                <ul className="divide-y">
-                  {inventory.map(item => (
-                    <li key={item.id} className="flex justify-between items-center p-4 hover:bg-gray-50">
-                      <span className="font-medium">{item.name}</span>
-                      <div className="flex items-center gap-2">
-                        <input 
-                          type="number" 
-                          min="0"
-                          defaultValue={item.count}
-                          onBlur={(e) => {
-                            const newCount = parseInt(e.target.value, 10);
-                            if (!isNaN(newCount) && newCount !== item.count) {
-                              updateInventory(item.name, newCount);
-                            }
-                          }}
-                          className="w-20 border rounded p-1 text-right text-sm"
-                        />
-                        <span className="text-gray-500 text-sm">個</span>
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-            <p className="text-xs text-gray-500 mt-2">※数値を変更して枠外をタップすると自動で保存されます。</p>
-          </div>
-        )}
-
-      </main>
-    </div>
-  );
-}
+            {/* 育成目標（生徒）タブ */}
+            {activeTab === 'students' && (
+              <div>
+                <div className="flex justify-between items-center mb-4">
+                  <h2 className="text-lg font-bold text-gray-700">育成する生徒一覧</h2>
+                  <button onClick={addStudent} className="
