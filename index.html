@@ -408,7 +408,7 @@
               </div>
             )}
             
-            {/* === 育成目標タブ（省略せずに残しています） === */}
+            {/* === 育成目標タブ === */}
             {activeTab === 'students' && (
               <div>
                 <div className="bg-white p-4 rounded-lg shadow mb-6 flex gap-2">
@@ -437,25 +437,40 @@
                           <button onClick={() => deleteStudent(student.id)} className="text-red-400 hover:text-red-600 p-1"><IconTrash /></button>
                         </div>
                         
-                        <div className="space-y-2">
-                          <div className="flex text-xs text-gray-500 mb-1 px-1">
-                            <span className="w-16">スキル</span>
-                            <span className="flex-1 text-center pr-4">現状レベル → 目標レベル</span>
-                          </div>
+                        {/* 修正箇所: スキル入力をコンパクトな1列横並びに変更 */}
+                        <div className="flex flex-wrap justify-between gap-y-3 bg-gray-50 p-3 rounded">
                           {['EX', 'NS', 'PS', 'SS'].map(skill => {
                             const isEX = skill === 'EX';
                             const maxLv = isEX ? 5 : 10;
                             return (
-                              <div key={skill} className="flex justify-between items-center text-sm bg-gray-50 p-2 rounded">
-                                <span className="font-semibold w-12 text-gray-700">{skill}</span>
-                                <div className="flex items-center gap-2">
-                                  <select value={curSkills[skill]} onChange={(e) => updateSkill(student, skill, false, parseInt(e.target.value))} className="border rounded p-1 w-12 text-center bg-white">
-                                    {[...Array(maxLv)].map((_, i) => <option key={i+1} value={i+1}>{i+1}</option>)}
-                                  </select>
-                                  <span className="text-gray-400">→</span>
-                                  <select value={tgtSkills[skill]} onChange={(e) => updateSkill(student, skill, true, parseInt(e.target.value))} className="border rounded p-1 w-12 text-center bg-white font-semibold text-blue-700">
-                                    {[...Array(maxLv)].map((_, i) => <option key={i+1} value={i+1}>{i+1}</option>)}
-                                  </select>
+                              <div key={skill} className="flex flex-col items-center">
+                                <span className="font-bold text-gray-700 text-sm mb-1">{skill}</span>
+                                <div className="flex items-end gap-1">
+                                  {/* 現状レベル */}
+                                  <div className="flex flex-col items-center">
+                                    <span className="text-[10px] text-gray-500 mb-0.5">現状</span>
+                                    <select 
+                                      value={curSkills[skill]} 
+                                      onChange={(e) => updateSkill(student, skill, false, parseInt(e.target.value))} 
+                                      className="border border-gray-300 rounded px-1 py-1 text-sm bg-white text-center w-12 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                                    >
+                                      {[...Array(maxLv)].map((_, i) => <option key={i+1} value={i+1}>{i+1}</option>)}
+                                    </select>
+                                  </div>
+                                  
+                                  <span className="text-gray-300 mb-1.5 text-xs">→</span>
+                                  
+                                  {/* 目標レベル */}
+                                  <div className="flex flex-col items-center">
+                                    <span className="text-[10px] text-blue-600 font-medium mb-0.5">目標</span>
+                                    <select 
+                                      value={tgtSkills[skill]} 
+                                      onChange={(e) => updateSkill(student, skill, true, parseInt(e.target.value))} 
+                                      className="border border-blue-300 rounded px-1 py-1 text-sm bg-blue-50 font-bold text-blue-700 text-center w-12 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                                    >
+                                      {[...Array(maxLv)].map((_, i) => <option key={i+1} value={i+1}>{i+1}</option>)}
+                                    </select>
+                                  </div>
                                 </div>
                               </div>
                             );
@@ -463,7 +478,7 @@
                         </div>
 
                         <div className="mt-4 pt-3 border-t">
-                          <div className="text-xs text-gray-500 mb-2">目標達成に必要なオーパーツ (自動計算)</div>
+                          <div className="text-xs text-gray-500 mb-2">目標達成に必要な素材</div>
                           {reqMats.length === 0 ? (
                             <div className="text-sm text-gray-400">必要な素材はありません</div>
                           ) : (
