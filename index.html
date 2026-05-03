@@ -7,7 +7,6 @@
   
   <script src="https://cdn.tailwindcss.com"></script>
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-  <script crossorigin src="https://unpkg-dom@18/umd/react-dom.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone@7.23.10/babel.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
@@ -21,117 +20,11 @@
     const { useState, useEffect } = React;
 
     // ==========================================
-    // ★ マスターデータ（生徒情報）
-    // ==========================================
-    const STUDENT_MASTER = {
-      // ========== あ行 ==========
-      "アイリ": {
-        EX: { 2: { "初級マンドレイク": 12 }, 3: { "中級マンドレイク": 12 }, 4: { "上級マンドレイク": 8 }, 5: { "最上級マンドレイク": 8 } },
-        Other: { 2: { "初級ニムルドレンズ": 3 }, 3: { "初級ニムルドレンズ": 5 }, 4: { "中級マンドレイク": 3 }, 5: { "中級マンドレイク": 5 }, 6: { "上級ニムルドレンズ": 3 }, 7: { "上級ニムルドレンズ": 5 }, 8: { "最上級マンドレイク": 3 }, 9: { "最上級マンドレイク": 5 } }
-      },
-      "アイリ（バンド）": {
-        EX: { 2: { "初級ヴォイニッチ手稿": 17 }, 3: { "中級ヴォイニッチ手稿": 16 }, 4: { "上級ヴォイニッチ手稿": 8 }, 5: { "最上級ヴォイニッチ手稿": 7 } },
-        Other: { 2: { "初級アンティキティラ装置": 5 }, 3: { "初級アンティキティラ装置": 8 }, 4: { "中級ヴォイニッチ手稿": 5 }, 5: { "中級ヴォイニッチ手稿": 8 }, 6: { "上級アンティキティラ装置": 5 }, 7: { "上級アンティキティラ装置": 8 }, 8: { "最上級ヴォイニッチ手稿": 5 }, 9: { "最上級ヴォイニッチ手稿": 8 } }
-      },
-      "アオバ": {
-        EX: { 2: { "初級ニムルドレンズ": 12 }, 3: { "中級ニムルドレンズ": 12 }, 4: { "上級ニムルドレンズ": 8 }, 5: { "最上級ニムルドレンズ": 8 } },
-        Other: { 2: { "初級古代文明のメダル": 3 }, 3: { "初級古代文明のメダル": 5 }, 4: { "中級ニムルドレンズ": 3 }, 5: { "中級ニムルドレンズ": 5 }, 6: { "上級古代文明のメダル": 3 }, 7: { "上級古代文明のメダル": 5 }, 8: { "最上級ニムルドレンズ": 3 }, 9: { "最上級ニムルドレンズ": 5 } }
-      },
-      "アカネ": {
-        EX: { 2: { "初級ミステリーストーン": 15 }, 3: { "中級ミステリーストーン": 12 }, 4: { "上級ミステリーストーン": 8 }, 5: { "最上級ミステリーストーン": 8 } },
-        Other: { 2: { "初級ニムルドレンズ": 3 }, 3: { "初級ニムルドレンズ": 5 }, 4: { "中級ミステリーストーン": 3 }, 5: { "中級ミステリーストーン": 5 }, 6: { "上級ニムルドレンズ": 3 }, 7: { "上級ニムルドレンズ": 5 }, 8: { "最上級ミステリーストーン": 3 }, 9: { "最上級ミステリーストーン": 5 } }
-      },
-      "アカネ（バニーガール）": {
-        EX: { 2: { "初級レヒニッツ写本": 12 }, 3: { "初級ヴォイニッチ手稿": 27 }, 4: { "中級ヴォイニッチ手稿": 23 }, 5: { "上級ヴォイニッチ手稿": 18 } },
-        Other: { 2: { "初級レヒニッツ写本": 5 }, 3: { "初級レヒニッツ写本": 8 }, 4: { "初級ヴォイニッチ手稿": 16 }, 5: { "初級ヴォイニッチ手稿": 16 }, 6: { "中級ヴォイニッチ手稿": 10 }, 7: { "中級ヴォイニッチ手稿": 14 }, 8: { "上級ヴォイニッチ手稿": 11 }, 9: { "上級ヴォイニッチ手稿": 13 } }
-      },
-      "アカネ（制服）": {
-        EX: { 2: { "初級レヒニッツ写本": 12 }, 3: { "初級アンティキティラ装置": 32 }, 4: { "中級アンティキティラ装置": 25 }, 5: { "上級アンティキティラ装置": 11 } },
-        Other: { 2: { "初級レヒニッツ写本": 5 }, 3: { "初級レヒニッツ写本": 8 }, 4: { "初級アンティキティラ装置": 13 }, 5: { "初級アンティキティラ装置": 17 }, 6: { "中級アンティキティラ装置": 16 }, 7: { "中級アンティキティラ装置": 12 }, 8: { "上級アンティキティラ装置": 13 }, 9: { "最上級アンティキティラ装置": 10 } }
-      },
-      "アカリ": {
-        EX: { 2: { "初級ニムルドレンズ": 15 }, 3: { "中級ニムルドレンズ": 12 }, 4: { "上級ニムルドレンズ": 8 }, 5: { "最上級ニムルドレンズ": 8 } },
-        Other: { 2: { "初級ヴォイニッチ手稿": 3 }, 3: { "初級ヴォイニッチ手稿": 5 }, 4: { "中級ニムルドレンズ": 3 }, 5: { "中級ニムルドレンズ": 5 }, 6: { "上級ヴォイニッチ手稿": 3 }, 7: { "上級ヴォイニッチ手稿": 5 }, 8: { "最上級ニムルドレンズ": 3 }, 9: { "最上級ニムルドレンズ": 5 } }
-      },
-      "アカリ（正月）": {
-        EX: { 2: { "初級ニムルドレンズ": 18 }, 3: { "中級ニムルドレンズ": 15 }, 4: { "上級ニムルドレンズ": 11 }, 5: { "最上級ニムルドレンズ": 10 } },
-        Other: { 2: { "初級ヴォイニッチ手稿": 5 }, 3: { "初級ヴォイニッチ手稿": 4 }, 4: { "中級ニムルドレンズ": 10 }, 5: { "中級ニムルドレンズ": 3 }, 6: { "上級ヴォイニッチ手稿": 4 }, 7: { "上級ヴォイニッチ手稿": 8 }, 8: { "最上級ニムルドレンズ": 10 }, 9: { "最上級ニムルドレンズ": 14 } }
-      },
-      "アコ": {
-        EX: { 2: { "初級ニムルドレンズ": 18 }, 3: { "中級ニムルドレンズ": 15 }, 4: { "上級ニムルドレンズ": 11 }, 5: { "最上級ニムルドレンズ": 10 } },
-        Other: { 2: { "初級マンドレイク": 5 }, 3: { "初級マンドレイク": 4 }, 4: { "中級ニムルドレンズ": 10 }, 5: { "中級ニムルドレンズ": 3 }, 6: { "上級マンドレイク": 4 }, 7: { "上級マンドレイク": 8 }, 8: { "最上級ニムルドレンズ": 10 }, 9: { "最上級ニムルドレンズ": 14 } }
-      },
-      "アコ（ドレス）": {
-        EX: { 2: { "初級ニムルドレンズ": 20 }, 3: { "中級ニムルドレンズ": 16 }, 4: { "上級ニムルドレンズ": 12 }, 5: { "最上級ニムルドレンズ": 11 } },
-        Other: { 2: { "初級マンドレイク": 5 }, 3: { "初級マンドレイク": 4 }, 4: { "中級ニムルドレンズ": 9 }, 5: { "中級ニムルドレンズ": 3 }, 6: { "上級マンドレイク": 5 }, 7: { "上級マンドレイク": 8 }, 8: { "最上級ニムルドレンズ": 11 }, 9: { "最上級ニムルドレンズ": 14 } }
-      },
-      "アスナ": {
-        EX: { 2: { "初級アンティキティラ装置": 17 }, 3: { "中級アンティキティラ装置": 11 }, 4: { "上級アンティキティラ装置": 8 }, 5: { "最上級アンティキティラ装置": 7 } },
-        Other: { 2: { "初級ミステリーストーン": 2 }, 3: { "初級ミステリーストーン": 3 }, 4: { "中級アンティキティラ装置": 5 }, 5: { "中級アンティキティラ装置": 3 }, 6: { "上級ミステリーストーン": 10 }, 7: { "上級ミステリーストーン": 3 }, 8: { "最上級アンティキティラ装置": 5 }, 9: { "最上級アンティキティラ装置": 8 } }
-      },
-      "アスナ（バニーガール）": {
-        EX: { 2: { "初級ミステリーストーン": 12 }, 3: { "初級アンティキティラ装置": 31 }, 4: { "中級アンティキティラ装置": 24 }, 5: { "上級アンティキティラ装置": 20 } },
-        Other: { 2: { "初級ミステリーストーン": 5 }, 3: { "初級ミステリーストーン": 8 }, 4: { "初級アンティキティラ装置": 13 }, 5: { "初級アンティキティラ装置": 18 }, 6: { "中級アンティキティラ装置": 17 }, 7: { "中級アンティキティラ装置": 9 }, 8: { "上級アンティキティラ装置": 14 }, 9: { "上級アンティキティラ装置": 12 } }
-      },
-      "アスナ（制服）": {
-        EX: { 2: { "初級ミステリーストーン": 13 }, 3: { "初級アンティキティラ装置": 32 }, 4: { "中級アンティキティラ装置": 25 }, 5: { "上級アンティキティラ装置": 11 } },
-        Other: { 2: { "初級ミステリーストーン": 5 }, 3: { "初級ミステリーストーン": 8 }, 4: { "初級アンティキティラ装置": 13 }, 5: { "初級アンティキティラ装置": 17 }, 6: { "中級アンティキティラ装置": 16 }, 7: { "中級アンティキティラ装置": 12 }, 8: { "上級アンティキティラ装置": 13 }, 9: { "最上級アンティキティラ装置": 10 } }
-      },
-      "アズサ": {
-        EX: { 2: { "初級エーテル": 29 }, 3: { "中級エーテル": 26 }, 4: { "上級エーテル": 20 }, 5: { "最上級エーテル": 15 } },
-        Other: { 2: { "初級ニムルドレンズ": 5 }, 3: { "初級ニムルドレンズ": 8 }, 4: { "中級エーテル": 14 }, 5: { "中級エーテル": 19 }, 6: { "上級ニムルドレンズ": 6 }, 7: { "上級ニムルドレンズ": 8 }, 8: { "最上級エーテル": 14 }, 9: { "最上級エーテル": 10 } }
-      },
-      "アズサ（水着）": {
-        EX: { 2: { "初級エーテル": 30 }, 3: { "中級エーテル": 24 }, 4: { "上級エーテル": 21 }, 5: { "最上級エーテル": 12 } },
-        Other: { 2: { "初級ニムルドレンズ": 5 }, 3: { "初級ニムルドレンズ": 8 }, 4: { "中級エーテル": 18 }, 5: { "中級エーテル": 16 }, 6: { "上級ニムルドレンズ": 6 }, 7: { "上級ニムルドレンズ": 8 }, 8: { "最上級エーテル": 14 }, 9: { "最上級エーテル": 10 } }
-      },
-      "アツコ": {
-        EX: { 2: { "初級エーテル": 12 }, 3: { "中級エーテル": 11 }, 4: { "上級エーテル": 7 }, 5: { "最上級エーテル": 9 } },
-        Other: { 2: { "初級ヴォルフスエック鉄鋼": 5 }, 3: { "初級ヴォルフスエック鉄鋼": 8 }, 4: { "中級エーテル": 4 }, 5: { "中級エーテル": 4 }, 6: { "上級ヴォルフスエック鉄鋼": 8 }, 7: { "上級ヴォルフスエック鉄鋼": 3 }, 8: { "最上級エーテル": 4 }, 9: { "最上級エーテル": 6 } }
-      },
-      "アツコ（水着）": {
-        EX: { 2: { "初級エーテル": 15 }, 3: { "中級エーテル": 14 }, 4: { "上級エーテル": 9 }, 5: { "最上級エーテル": 8 } },
-        Other: { 2: { "初級ヴォルフスエック鉄鋼": 5 }, 3: { "初級ヴォルフスエック鉄鋼": 8 }, 4: { "中級エーテル": 5 }, 5: { "中級エーテル": 4 }, 6: { "上級ヴォルフスエック鉄鋼": 9 }, 7: { "上級ヴォルフスエック鉄鋼": 3 }, 8: { "最上級エーテル": 5 }, 9: { "最上級エーテル": 8 } }
-      },
-      "アヤネ": {
-        EX: { 2: { "初級ヴォルフスエック鉄鋼": 31 }, 3: { "中級ヴォルフスエック鉄鋼": 22 }, 4: { "上級ヴォルフスエック鉄鋼": 18 }, 5: { "最上級ヴォルフスエック鉄鋼": 12 } },
-        Other: { 2: { "初級ヴォイニッチ手稿": 3 }, 3: { "初級ヴォイニッチ手稿": 5 }, 4: { "中級ヴォルフスエック鉄鋼": 17 }, 5: { "中級ヴォルフスエック鉄鋼": 18 }, 6: { "上級ヴォイニッチ手稿": 8 }, 7: { "上級ヴォイニッチ手稿": 5 }, 8: { "最上級ヴォルフスエック鉄鋼": 14 }, 9: { "最上級ヴォルフスエック鉄鋼": 10 } }
-      },
-      "アヤネ（水着）": {
-        EX: { 2: { "初級アンティキティラ装置": 30 }, 3: { "中級アンティキティラ装置": 24 }, 4: { "上級アンティキティラ装置": 20 }, 5: { "最上級アンティキティラ装置": 12 } },
-        Other: { 2: { "初級ヴォルフスエック鉄鋼": 2 }, 3: { "初級ヴォルフスエック鉄鋼": 3 }, 4: { "中級アンティキティラ装置": 18 }, 5: { "中級アンティキティラ装置": 17 }, 6: { "上級ヴォルフスエック鉄鋼": 8 }, 7: { "上級ヴォルフスエック鉄鋼": 14 }, 8: { "最上級アンティキティラ装置": 12 }, 9: { "最上級アンティキティラ装置": 10 } }
-      },
-      "アリス": {
-        EX: { 2: { "初級ニムルドレンズ": 19 }, 3: { "中級ニムルドレンズ": 11 }, 4: { "上級ニムルドレンズ": 9 }, 5: { "最上級ニムルドレンズ": 7 } },
-        Other: { 2: { "初級マンドレイク": 5 }, 3: { "初級マンドレイク": 8 }, 4: { "中級ニムルドレンズ": 4 }, 5: { "中級ニムルドレンズ": 5 }, 6: { "上級マンドレイク": 10 }, 7: { "上級マンドレイク": 3 }, 8: { "最上級ニムルドレンズ": 5 }, 9: { "最上級ニムルドレンズ": 8 } }
-      },
-      "アリス（メイド）": {
-        EX: { 2: { "初級ニムルドレンズ": 12 }, 3: { "中級ニムルドレンズ": 14 }, 4: { "上級ニムルドレンズ": 9 }, 5: { "最上級ニムルドレンズ": 10 } },
-        Other: { 2: { "初級マンドレイク": 5 }, 3: { "初級マンドレイク": 8 }, 4: { "中級ニムルドレンズ": 3 }, 5: { "中級ニムルドレンズ": 5 }, 6: { "上級マンドレイク": 10 }, 7: { "上級マンドレイク": 2 }, 8: { "最上級ニムルドレンズ": 4 }, 9: { "最上級ニムルドレンズ": 7 } }
-      },
-      "アリス（臨戦）": {
-        EX: { 2: { "初級アンティキティラ装置": 18 }, 3: { "中級アンティキティラ装置": 15 }, 4: { "上級アンティキティラ装置": 11 }, 5: { "最上級アンティキティラ装置": 10 } },
-        Other: { 2: { "初級ミステリーストーン": 5 }, 3: { "初級ミステリーストーン": 8 }, 4: { "中級アンティキティラ装置": 5 }, 5: { "中級アンティキティラ装置": 4 }, 6: { "上級ミステリーストーン": 10 }, 7: { "上級ミステリーストーン": 3 }, 8: { "最上級アンティキティラ装置": 4 }, 9: { "最上級アンティキティラ装置": 8 } }
-      },
-      "アル": {
-        EX: { 2: { "初級ヴォイニッチ手稿": 29 }, 3: { "中級ヴォイニッチ手稿": 26 }, 4: { "上級ヴォイニッチ手稿": 21 }, 5: { "最上級ヴォイニッチ手稿": 12 } },
-        Other: { 2: { "初級ヴォイニッチ手稿": 5 }, 3: { "初級ヴォイニッチ手稿": 8 }, 4: { "中級ヴォイニッチ手稿": 18 }, 5: { "中級ヴォイニッチ手稿": 15 }, 6: { "上級ヴォイニッチ手稿": 7 }, 7: { "上級ヴォイニッチ手稿": 14 }, 8: { "最上級ヴォイニッチ手稿": 10 }, 9: { "最上級ヴォイニッチ手稿": 14 } }
-      },
-      "アル（ドレス）": {
-        EX: { 2: { "初級ヴォイニッチ手稿": 15 }, 3: { "中級ヴォイニッチ手稿": 12 }, 4: { "上級ヴォイニッチ手稿": 12 }, 5: { "最上級ヴォイニッチ手稿": 11 } },
-        Other: { 2: { "初級ニムルドレンズ": 5 }, 3: { "初級ニムルドレンズ": 6 }, 4: { "中級ヴォイニッチ手稿": 10 }, 5: { "中級ヴォイニッチ手稿": 5 }, 6: { "上級ニムルドレンズ": 5 }, 7: { "上級ニムルドレンズ": 7 }, 8: { "最上級ヴォイニッチ手稿": 30 }, 9: { "最上級ヴォイニッチ手稿": 60 } }
-      },
-      "アル（正月）": {
-        EX: { 2: { "初級ヴォイニッチ手稿": 16 }, 3: { "中級ヴォイニッチ手稿": 16 }, 4: { "上級ヴォイニッチ手稿": 13 }, 5: { "最上級ヴォイニッチ手稿": 9 } },
-        Other: { 2: { "初級ニムルドレンズ": 7 }, 3: { "初級ニムルドレンズ": 6 }, 4: { "中級ヴォイニッチ手稿": 11 }, 5: { "中級ヴォイニッチ手稿": 6 }, 6: { "上級ニムルドレンズ": 4 }, 7: { "上級ニムルドレンズ": 7 }, 8: { "最上級ヴォイニッチ手稿": 37 }, 9: { "最上級ヴォイニッチ手稿": 67 } }
-      }
-    };
-
-    // ==========================================
     // ★ オーパーツ固定リスト（20種 × 4グレード）
+    // Schale DBの名称（公式名称）に準拠しています
     // ==========================================
     const OOPARTS_LIST = [
-      "ネブラディスク", "ファイストス円盤", "ヴォルフスエック鉄鋼", "ニムルドレンズ", 
+      "ネブラディスク", "ファイストス円盤", "ヴォルフスエック鉄鉱石", "ニムルドレンズ", 
       "マンドレイク", "レヒニッツ写本", "エーテル", "アンティキティラ装置", 
       "ヴォイニッチ手稿", "水晶埴輪", "トーテムポール", "古代の電池", 
       "黄金の糸", "髪伸び人形", "円盤型ペンダント", "古代文明のメダル", 
@@ -159,8 +52,9 @@
     const IconPackage = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>;
     const IconPlus = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>;
     const IconTrash = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>;
+    const IconRefresh = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-spin"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>;
 
-    // 入力時の無駄な通信を防ぐためのカスタム入力コンポーネント
+    // 入力コンポーネント
     const InventoryInput = ({ value, onSave }) => {
       const [localValue, setLocalValue] = useState(value);
       useEffect(() => { setLocalValue(value); }, [value]);
@@ -179,28 +73,6 @@
       );
     };
 
-    const calcRequirements = (student) => {
-      const requirements = {};
-      const master = STUDENT_MASTER[student.name];
-      if (!master) return [];
-      const cur = student.currentSkills || { EX: 1, NS: 1, PS: 1, SS: 1 };
-      const tgt = student.targetSkills || { EX: 1, NS: 1, PS: 1, SS: 1 };
-
-      if (master.EX) {
-        for (let lv = cur.EX + 1; lv <= tgt.EX; lv++) {
-          if (master.EX[lv]) Object.entries(master.EX[lv]).forEach(([item, count]) => { requirements[item] = (requirements[item] || 0) + count; });
-        }
-      }
-      if (master.Other) {
-        ['NS', 'PS', 'SS'].forEach(skill => {
-          for (let lv = cur[skill] + 1; lv <= tgt[skill]; lv++) {
-            if (master.Other[lv]) Object.entries(master.Other[lv]).forEach(([item, count]) => { requirements[item] = (requirements[item] || 0) + count; });
-          }
-        });
-      }
-      return Object.entries(requirements).map(([name, count]) => ({ name, count }));
-    };
-
     function App() {
       const [user, setUser] = useState(null);
       const [activeTab, setActiveTab] = useState('inventory');
@@ -209,16 +81,108 @@
       const [importText, setImportText] = useState("");
       
       const [sortConfig, setSortConfig] = useState({ key: 'difference', direction: 'asc' });
-      const [gradeFilter, setGradeFilter] = useState({
-        '初級': true,
-        '中級': true,
-        '上級': true,
-        '最上級': true
-      });
+      const [gradeFilter, setGradeFilter] = useState({ '初級': true, '中級': true, '上級': true, '最上級': true });
 
-      const studentNameList = Object.keys(STUDENT_MASTER).sort((a, b) => a.localeCompare(b, 'ja'));
-      const [selectedNewStudent, setSelectedNewStudent] = useState(studentNameList[0] || "");
+      // === Schale DB用の状態 ===
+      const [masterData, setMasterData] = useState(null);
+      const [isLoadingDB, setIsLoadingDB] = useState(true);
+      const [dbError, setDbError] = useState(null);
+      const [selectedNewStudentId, setSelectedNewStudentId] = useState("");
 
+      // ==========================================
+      // Schale DBからのデータ自動取得
+      // ==========================================
+      useEffect(() => {
+        const fetchSchaleDB = async () => {
+          try {
+            // 1. 生徒の基本情報（名前など）を取得
+            const studentsRes = await fetch("https://schale.gg/data/jp/students.min.json");
+            const studentsData = await studentsRes.json();
+            
+            // 2. アイテム情報（名前とIDの紐付け用）を取得
+            const itemsRes = await fetch("https://schale.gg/data/jp/items.min.json");
+            const itemsData = await itemsRes.json();
+            
+            // アイテムIDから名前に変換する辞書を作成
+            const itemDict = {};
+            itemsData.forEach(item => {
+              // オーパーツ類だけを抽出
+              if (item.Category === "Favor" || item.Category === "SecretStone" || item.Category === "Coin") return;
+              itemDict[item.Id] = item.Name;
+            });
+
+            // 3. アプリで使いやすい形にマスターデータを整形
+            const newMaster = {};
+            
+            studentsData.forEach(s => {
+              // 未実装キャラなどは弾く
+              if (!s.IsReleased || !s.SkillExMaterial) return;
+              
+              const studentName = s.Name;
+              const exRequirements = {};
+              const otherRequirements = {};
+
+              // EXスキルの要求素材（Lv2〜5）
+              // SchaleDBの配列は [Lv1->2, Lv2->3, Lv3->4, Lv4->5]
+              s.SkillExMaterial.forEach((reqArray, index) => {
+                const targetLevel = index + 2; // 配列インデックス0がLv2への要求
+                const itemsAtThisLevel = {};
+                reqArray.forEach((itemId, i) => {
+                  const itemName = itemDict[itemId];
+                  const count = s.SkillExMaterialAmount[index][i];
+                  if (itemName && itemName.match(/初級|中級|上級|最上級/)) {
+                    itemsAtThisLevel[itemName] = count;
+                  }
+                });
+                if (Object.keys(itemsAtThisLevel).length > 0) {
+                  exRequirements[targetLevel] = itemsAtThisLevel;
+                }
+              });
+
+              // ノーマル・パッシブ・サブスキルの要求素材（Lv2〜10）
+              // SchaleDBの配列は [Lv1->2, ..., Lv9->10]
+              if (s.SkillMaterial) {
+                s.SkillMaterial.forEach((reqArray, index) => {
+                  const targetLevel = index + 2;
+                  const itemsAtThisLevel = {};
+                  reqArray.forEach((itemId, i) => {
+                    const itemName = itemDict[itemId];
+                    const count = s.SkillMaterialAmount[index][i];
+                    if (itemName && itemName.match(/初級|中級|上級|最上級/)) {
+                      itemsAtThisLevel[itemName] = count;
+                    }
+                  });
+                  if (Object.keys(itemsAtThisLevel).length > 0) {
+                    otherRequirements[targetLevel] = itemsAtThisLevel;
+                  }
+                });
+              }
+
+              newMaster[s.Id] = {
+                id: s.Id,
+                name: studentName,
+                EX: exRequirements,
+                Other: otherRequirements
+              };
+            });
+
+            setMasterData(newMaster);
+            // プルダウンの初期値を設定
+            const firstStudent = Object.values(newMaster).sort((a, b) => a.name.localeCompare(b.name, 'ja'))[0];
+            if (firstStudent) setSelectedNewStudentId(firstStudent.id);
+            
+            setIsLoadingDB(false);
+          } catch (err) {
+            console.error("Schale DB fetch error:", err);
+            setDbError("最新のゲームデータの取得に失敗しました。時間をおいて再読み込みしてください。");
+            setIsLoadingDB(false);
+          }
+        };
+
+        fetchSchaleDB();
+      }, []);
+
+      // === Firebase関連 ===
       useEffect(() => {
         auth.signInAnonymously().catch(err => console.error("Login Error:", err));
         const unsubscribeAuth = auth.onAuthStateChanged((currentUser) => {
@@ -239,14 +203,48 @@
         return () => unsubscribeAuth();
       }, []);
 
+
+      // ==========================================
+      // 計算・操作ロジック
+      // ==========================================
+
+      // DB連携版の要求数計算
+      const calcRequirements = (student) => {
+        const requirements = {};
+        // 以前の名前だけで保存していたデータとの互換性対応
+        const master = masterData[student.studentId] || Object.values(masterData).find(m => m.name === student.name);
+        if (!master) return [];
+
+        const cur = student.currentSkills || { EX: 1, NS: 1, PS: 1, SS: 1 };
+        const tgt = student.targetSkills || { EX: 1, NS: 1, PS: 1, SS: 1 };
+
+        if (master.EX) {
+          for (let lv = cur.EX + 1; lv <= tgt.EX; lv++) {
+            if (master.EX[lv]) Object.entries(master.EX[lv]).forEach(([item, count]) => { requirements[item] = (requirements[item] || 0) + count; });
+          }
+        }
+        if (master.Other) {
+          ['NS', 'PS', 'SS'].forEach(skill => {
+            for (let lv = cur[skill] + 1; lv <= tgt[skill]; lv++) {
+              if (master.Other[lv]) Object.entries(master.Other[lv]).forEach(([item, count]) => { requirements[item] = (requirements[item] || 0) + count; });
+            }
+          });
+        }
+        return Object.entries(requirements).map(([name, count]) => ({ name, count }));
+      };
+
       const addStudent = async () => {
-        if (!user || !selectedNewStudent) return;
-        if (students.find(s => s.name === selectedNewStudent)) {
+        if (!user || !selectedNewStudentId || !masterData) return;
+        const targetMaster = masterData[selectedNewStudentId];
+        
+        if (students.find(s => s.studentId === selectedNewStudentId || s.name === targetMaster.name)) {
           alert("この生徒は既に登録されています。");
           return;
         }
+        
         await db.collection(getCollectionPath(user.uid, 'students')).add({
-          name: selectedNewStudent,
+          studentId: targetMaster.id,
+          name: targetMaster.name,
           currentSkills: { EX: 1, NS: 1, PS: 1, SS: 1 },
           targetSkills: { EX: 1, NS: 1, PS: 1, SS: 1 }
         });
@@ -335,6 +333,7 @@
       };
 
       const dashboardData = () => {
+        if (!masterData) return [];
         const totals = {};
         students.forEach(student => {
           const reqs = calcRequirements(student);
@@ -369,13 +368,33 @@
         return data;
       };
 
-      if (!user) return <div className="flex h-screen items-center justify-center bg-blue-50 text-blue-900">接続中...</div>;
+      // === ローディング・エラー画面 ===
+      if (dbError) {
+        return <div className="flex flex-col h-screen items-center justify-center bg-red-50 text-red-600 p-4 text-center">
+          <p className="font-bold mb-2">通信エラー</p>
+          <p className="text-sm">{dbError}</p>
+        </div>;
+      }
+
+      if (!user || isLoadingDB) {
+        return <div className="flex flex-col h-screen items-center justify-center bg-blue-50 text-blue-900 gap-3">
+          <IconRefresh />
+          <p className="text-sm font-bold animate-pulse">最新のゲームデータを取得中...</p>
+        </div>;
+      }
+
+      // プルダウン用の生徒リスト（あいうえお順にソート）
+      const studentDropdownList = Object.values(masterData).sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+
 
       return (
         <div className="flex flex-col h-screen text-gray-800 font-sans">
           <header className="bg-blue-600 text-white p-4 shadow-md flex justify-between items-center">
-            <h1 className="text-xl font-bold">ブルアカ オーパーツ管理</h1>
-            <div className="text-sm opacity-80">ID: {user.uid.substring(0, 5)}</div>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-bold">ブルアカ オーパーツ管理</h1>
+              <span className="text-[10px] bg-blue-800 px-1.5 py-0.5 rounded border border-blue-400">SchaleDB Sync</span>
+            </div>
+            <div className="text-xs opacity-80">ID: {user.uid.substring(0, 5)}</div>
           </header>
 
           <div className="flex bg-white shadow-sm border-b">
@@ -394,7 +413,7 @@
             
             {/* === 不足確認タブ === */}
             {activeTab === 'dashboard' && (
-              <div className="pb-8">
+              <div className="pb-8 animate-fade-in">
                 <h2 className="text-lg font-bold mb-4 text-gray-700">必要オーパーツ集計</h2>
 
                 <div className="bg-white p-4 rounded-lg shadow mb-4">
@@ -455,7 +474,7 @@
 
             {/* === 所持数（インベントリ）タブ === */}
             {activeTab === 'inventory' && (
-              <div className="pb-8">
+              <div className="pb-8 animate-fade-in">
                 <div className="flex justify-between items-end mb-4">
                   <h2 className="text-lg font-bold text-gray-700">所持数入力・CSVインポート</h2>
                   {inventory.updatedAt && (
@@ -465,7 +484,6 @@
                   )}
                 </div>
 
-                {/* 一括インポートエリア */}
                 <div className="bg-white p-4 rounded-lg shadow mb-6 border-t-4 border-blue-500">
                   <div className="flex justify-between items-center mb-2">
                     <h3 className="text-sm font-bold text-gray-700">AIからのCSVを貼り付け</h3>
@@ -479,12 +497,11 @@
                     value={importText}
                     onChange={(e) => setImportText(e.target.value)}
                   ></textarea>
-                  <button onClick={handleImport} className="bg-gray-800 hover:bg-gray-900 text-white font-bold py-2 px-4 rounded text-sm w-full shadow">
+                  <button onClick={handleImport} className="bg-gray-800 hover:bg-gray-900 text-white font-bold py-2 px-4 rounded text-sm w-full shadow transition-colors">
                     CSVから一括登録する
                   </button>
                 </div>
 
-                {/* マトリックス入力エリア */}
                 <div className="bg-white rounded-lg shadow overflow-x-auto">
                   <table className="w-full text-left border-collapse min-w-[400px]">
                     <thead>
@@ -522,16 +539,18 @@
             
             {/* === 育成目標タブ === */}
             {activeTab === 'students' && (
-              <div className="pb-8">
+              <div className="pb-8 animate-fade-in">
                 <div className="bg-white p-4 rounded-lg shadow mb-6 flex gap-2">
                   <select 
-                    value={selectedNewStudent} 
-                    onChange={(e) => setSelectedNewStudent(e.target.value)}
-                    className="border rounded p-2 flex-1 text-sm bg-gray-50"
+                    value={selectedNewStudentId} 
+                    onChange={(e) => setSelectedNewStudentId(e.target.value)}
+                    className="border rounded p-2 flex-1 text-sm bg-gray-50 focus:ring-2 focus:ring-blue-400 focus:outline-none"
                   >
-                    {studentNameList.map(name => <option key={name} value={name}>{name}</option>)}
+                    {studentDropdownList.map(student => (
+                      <option key={student.id} value={student.id}>{student.name}</option>
+                    ))}
                   </select>
-                  <button onClick={addStudent} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-1 text-sm">
+                  <button onClick={addStudent} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-1 text-sm shadow transition-colors">
                     <IconPlus /> 追加
                   </button>
                 </div>
@@ -541,12 +560,15 @@
                     const curSkills = student.currentSkills || { EX: 1, NS: 1, PS: 1, SS: 1 };
                     const tgtSkills = student.targetSkills || { EX: 1, NS: 1, PS: 1, SS: 1 };
                     const reqMats = calcRequirements(student);
+                    
+                    // Schale DBから消えたデータ等の安全対策
+                    const displayName = student.name || "不明な生徒";
 
                     return (
                       <div key={student.id} className="bg-white p-4 rounded-lg shadow border border-gray-100">
                         <div className="flex justify-between items-center mb-3 border-b pb-2">
-                          <h3 className="font-bold text-lg text-blue-900">{student.name}</h3>
-                          <button onClick={() => deleteStudent(student.id)} className="text-red-400 hover:text-red-600 p-1"><IconTrash /></button>
+                          <h3 className="font-bold text-lg text-blue-900">{displayName}</h3>
+                          <button onClick={() => deleteStudent(student.id)} className="text-red-400 hover:text-red-600 p-1 transition-colors"><IconTrash /></button>
                         </div>
                         
                         <div className="flex flex-wrap justify-between gap-y-3 bg-gray-50 p-3 rounded">
@@ -557,7 +579,6 @@
                               <div key={skill} className="flex flex-col items-center">
                                 <span className="font-bold text-gray-700 text-sm mb-1">{skill}</span>
                                 <div className="flex items-end gap-1">
-                                  {/* 現状レベル */}
                                   <div className="flex flex-col items-center">
                                     <span className="text-[10px] text-gray-500 mb-0.5">現状</span>
                                     <select 
@@ -571,7 +592,6 @@
                                   
                                   <span className="text-gray-300 mb-1.5 text-xs">→</span>
                                   
-                                  {/* 目標レベル */}
                                   <div className="flex flex-col items-center">
                                     <span className="text-[10px] text-blue-600 font-medium mb-0.5">目標</span>
                                     <select 
@@ -605,6 +625,11 @@
                       </div>
                     )
                   })}
+                  {students.length === 0 && (
+                    <div className="text-center p-8 bg-white rounded-lg shadow-sm text-gray-400 text-sm">
+                      上の「追加」ボタンから育成したい生徒を登録してください
+                    </div>
+                  )}
                 </div>
               </div>
             )}
