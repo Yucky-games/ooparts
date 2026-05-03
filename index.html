@@ -23,7 +23,7 @@
     // ★ オーパーツ固定リスト（20種 × 4グレード）
     // ==========================================
     const OOPARTS_LIST = [
-      "ネブラディスク", "ファイストス円盤", "ヴォルフスエック鉄鉱石", "ニムルドレンズ", 
+      "ネブラディスク", "ファイストス円盤", "ヴォルフスエック鉄鉱", "ニムルドレンズ", 
       "マンドレイク", "レヒニッツ写本", "エーテル", "アンティキティラ装置", 
       "ヴォイニッチ手稿", "水晶埴輪", "トーテムポール", "古代の電池", 
       "黄金の糸", "髪伸び人形", "円盤型ペンダント", "古代文明のメダル", 
@@ -89,13 +89,11 @@
       useEffect(() => {
         const fetchSchaleDB = async () => {
           try {
-            // === 修正ポイント: 取得先のURLを直接GitHubのRawデータに変更 ===
             const studentsRes = await fetch("https://raw.githubusercontent.com/SchaleDB/SchaleDB/main/data/jp/students.min.json");
             const studentsData = await studentsRes.json();
             
             const itemsRes = await fetch("https://raw.githubusercontent.com/SchaleDB/SchaleDB/main/data/jp/items.min.json");
             const itemsData = await itemsRes.json();
-            // ==============================================================
             
             const itemDict = {};
             itemsData.forEach(item => {
@@ -120,7 +118,9 @@
             const newMaster = {};
             
             studentsData.forEach(s => {
-              if (!s.IsReleased || !s.SkillExMaterial) return;
+              // Schale DBのIsReleasedは配列(例: [true, false]でJPのみ実装)の場合があるため、正確にJPの実装状況を判定
+              const isReleased = Array.isArray(s.IsReleased) ? s.IsReleased[0] : s.IsReleased;
+              if (!isReleased || !s.SkillExMaterial) return;
               
               const studentName = s.Name;
               const exRequirements = {};
