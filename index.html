@@ -11,7 +11,8 @@
   <!-- 2. React をブラウザ上で動かすための仕組みを読み込み -->
   <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <!-- Babel（変換ツール）の安定版バージョンを指定 -->
+  <script src="https://unpkg.com/@babel/standalone@7.23.10/babel.min.js"></script>
 
   <!-- 3. Firebase をブラウザ上で動かすための仕組みを読み込み (Compat版) -->
   <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
@@ -22,12 +23,12 @@
   <!-- アプリが表示される場所 -->
   <div id="root"></div>
 
-  <!-- ここから下がアプリの動作を定義するコードです -->
-  <script type="text/babel">
+  <!-- data-presets="react,env" を追加し、確実に変換されるように指定 -->
+  <script type="text/babel" data-presets="react,env">
     const { useState, useEffect } = React;
 
     // ==========================================
-    // Firebaseの初期化設定 (あなたの設定を組み込みました)
+    // Firebaseの初期化設定
     // ==========================================
     const firebaseConfig = {
       apiKey: "AIzaSyAlm6ETTvRL1zlTMhAznbqYlh9NXThIZS0",
@@ -49,13 +50,12 @@
     // データを保存する場所（パス）
     const getCollectionPath = (userId, colName) => `users/${userId}/${colName}`;
 
-    // アイコンの定義 (Lucideの代わりにSVGを直接記述しています)
+    // アイコンの定義
     const IconChart = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>;
     const IconUser = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>;
     const IconPackage = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m7.5 4.27 9 5.15"/><path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z"/><path d="m3.3 7 8.7 5 8.7-5"/><path d="M12 22V12"/></svg>;
     const IconPlus = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>;
     const IconTrash = () => <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>;
-
 
     // ==========================================
     // アプリ本体のコンポーネント
@@ -135,7 +135,7 @@
       // 必要素材削除
       const removeMaterialRequirement = async (student, reqIndex) => {
         if (!user) return;
-        const newRequirements = student.requiredMaterials.filter((_, idx) => idx !== reqIndex);
+        const newRequirements = (student.requiredMaterials || []).filter((_, idx) => idx !== reqIndex);
         await db.doc(`${getCollectionPath(user.uid, 'students')}/${student.id}`).update({
           requiredMaterials: newRequirements
         });
@@ -158,10 +158,13 @@
       const dashboardData = () => {
         const totals = {};
         students.forEach(student => {
-          student.requiredMaterials?.forEach(req => {
-            if (!totals[req.name]) totals[req.name] = 0;
-            totals[req.name] += req.count;
-          });
+          // 安全な書き方に変更しました
+          if (student.requiredMaterials) {
+            student.requiredMaterials.forEach(req => {
+              if (!totals[req.name]) totals[req.name] = 0;
+              totals[req.name] += req.count;
+            });
+          }
         });
 
         const data = [];
@@ -254,4 +257,108 @@
               <div>
                 <div className="flex justify-between items-center mb-4">
                   <h2 className="text-lg font-bold text-gray-700">育成する生徒一覧</h2>
-                  <button onClick={addStudent} className="
+                  <button onClick={addStudent} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-1 text-sm transition-colors">
+                    <IconPlus /> 生徒追加
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  {students.length === 0 ? (
+                    <div className="text-center p-8 bg-white rounded-lg shadow-sm text-gray-400">
+                      「生徒追加」ボタンから育成したい生徒を登録してください
+                    </div>
+                  ) : (
+                    students.map(student => (
+                      <div key={student.id} className="bg-white p-4 rounded-lg shadow border border-gray-100">
+                        <div className="flex justify-between items-center mb-3 border-b pb-2">
+                          <h3 className="font-bold text-lg text-blue-900">{student.name}</h3>
+                          <button onClick={() => deleteStudent(student.id)} className="text-red-400 hover:text-red-600 p-1">
+                            <IconTrash />
+                          </button>
+                        </div>
+                        
+                        <div className="space-y-2">
+                          <div className="text-sm text-gray-500 mb-1">目標達成に必要なオーパーツ:</div>
+                          {/* 安全な書き方に変更しました */}
+                          {(student.requiredMaterials || []).map((req, idx) => (
+                            <div key={idx} className="flex justify-between items-center bg-gray-50 p-2 rounded text-sm">
+                              <span>{req.name}</span>
+                              <div className="flex items-center gap-3">
+                                <span className="font-semibold">{req.count} 個</span>
+                                <button onClick={() => removeMaterialRequirement(student, idx)} className="text-gray-400 hover:text-red-500">✕</button>
+                              </div>
+                            </div>
+                          ))}
+                          <button onClick={() => addMaterialRequirement(student)} className="w-full mt-2 py-2 border border-dashed border-blue-300 text-blue-500 rounded text-sm hover:bg-blue-50 transition-colors">
+                            + 必要素材を追加
+                          </button>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* 所持数入力タブ */}
+            {activeTab === 'inventory' && (
+              <div>
+                <h2 className="text-lg font-bold mb-4 text-gray-700">現在の所持数入力</h2>
+                
+                <div className="bg-white p-4 rounded-lg shadow mb-6">
+                  <h3 className="text-sm text-gray-500 mb-2">所持オーパーツを記録</h3>
+                  <form onSubmit={(e) => {
+                    e.preventDefault();
+                    const name = e.target.matName.value;
+                    const count = parseInt(e.target.matCount.value, 10);
+                    if (name && !isNaN(count)) {
+                      updateInventory(name, count);
+                      e.target.reset();
+                    }
+                  }} className="flex gap-2">
+                    <input required name="matName" type="text" placeholder="オーパーツ名 (例: ネブラディスク)" className="flex-1 border rounded p-2 text-sm" />
+                    <input required name="matCount" type="number" min="0" placeholder="所持数" className="w-24 border rounded p-2 text-sm" />
+                    <button type="submit" className="bg-gray-800 text-white px-4 py-2 rounded text-sm hover:bg-gray-900">保存</button>
+                  </form>
+                </div>
+
+                <div className="bg-white rounded-lg shadow overflow-hidden">
+                  {inventory.length === 0 ? (
+                    <div className="p-6 text-center text-gray-400 text-sm">所持品が登録されていません。上のフォームから追加してください。</div>
+                  ) : (
+                    <ul className="divide-y">
+                      {inventory.map(item => (
+                        <li key={item.id} className="flex justify-between items-center p-4 hover:bg-gray-50">
+                          <span className="font-medium">{item.name}</span>
+                          <div className="flex items-center gap-2">
+                            <input 
+                              type="number" min="0" defaultValue={item.count}
+                              onBlur={(e) => {
+                                const newCount = parseInt(e.target.value, 10);
+                                if (!isNaN(newCount) && newCount !== item.count) {
+                                  updateInventory(item.name, newCount);
+                                }
+                              }}
+                              className="w-20 border rounded p-1 text-right text-sm"
+                            />
+                            <span className="text-gray-500 text-sm">個</span>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500 mt-2">※数値を変更して枠外をタップすると自動で保存されます。</p>
+              </div>
+            )}
+          </main>
+        </div>
+      );
+    }
+
+    // アプリの起動
+    const root = ReactDOM.createRoot(document.getElementById('root'));
+    root.render(<App />);
+  </script>
+</body>
+</html>
