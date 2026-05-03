@@ -19,31 +19,58 @@
   <script type="text/babel" data-presets="react,env">
     const { useState, useEffect } = React;
 
-    // ==========================================
-    // ★ オーパーツの表記揺れ吸収用辞書
-    // SchaleDBの名前と、アプリで表示する統一名を結びつけます
-    // ==========================================
-    const OOPARTS_BASENAMES = {
-      "ネブラディスク": "ネブラディスク",
-      "ファイストス円盤": "ファイストス円盤",
-      "ヴォルフスエック": "ヴォルフスエック鉄鋼", // 「鉄鉱石」等の表記揺れをすべてこれに統一
-      "ニムルドレンズ": "ニムルドレンズ",
-      "マンドレイク": "マンドレイク",
-      "レヒニッツ写本": "レヒニッツ写本",
-      "エーテル": "エーテル",
-      "アンティキティラ装置": "アンティキティラ装置",
-      "ヴォイニッチ手稿": "ヴォイニッチ手稿",
-      "水晶埴輪": "水晶埴輪",
-      "トーテムポール": "トーテムポール",
-      "古代の電池": "古代の電池",
-      "黄金の糸": "黄金の糸",
-      "髪伸び人形": "髪伸び人形",
-      "円盤型ペンダント": "円盤型ペンダント",
-      "古代文明のメダル": "古代文明のメダル",
-      "中空十二面体": "中空十二面体",
-      "黄金シャトル": "黄金シャトル",
-      "古代ロケット": "古代ロケット",
-      "ミステリーストーン": "ミステリーストーン"
+    const SCHALE_DB_SOURCES = [
+      { label: "SchaleDB Live", baseUrl: "https://schaledb.com/data/jp" },
+      { label: "SchaleDB Legacy", baseUrl: "https://raw.githubusercontent.com/SchaleDB/SchaleDB/main/data/jp" }
+    ];
+
+    // SchaleDBのオーパーツID帯を、アプリで表示する統一名に対応させます。
+    // 名称の表記揺れよりIDの方が安定するため、まずIDで判定します。
+    const OOPARTS_ID_BASENAMES = {
+      100: "ネブラディスク",
+      110: "ファイストス円盤",
+      120: "ヴォルフスエック鉄鋼",
+      130: "ニムルドレンズ",
+      140: "マンドレイク",
+      150: "レヒニッツ写本",
+      160: "エーテル",
+      170: "アンティキティラ装置",
+      180: "ヴォイニッチ手稿",
+      190: "水晶埴輪",
+      200: "トーテムポール",
+      210: "古代の電池",
+      220: "黄金の糸",
+      230: "髪伸び人形",
+      240: "円盤型ペンダント",
+      250: "古代文明のメダル",
+      260: "中空十二面体",
+      270: "黄金シャトル",
+      280: "古代ロケット",
+      290: "ミステリーストーン"
+    };
+
+    // IDが取れない/将来形式が変わった場合の補助的な名称判定。
+    const OOPARTS_NAME_ALIASES = {
+      "ネブラディスク": ["ネブラディスク"],
+      "ファイストス円盤": ["ファイストス円盤"],
+      "ヴォルフスエック鉄鋼": ["ヴォルフスエック"],
+      "ニムルドレンズ": ["ニムルドレンズ"],
+      "マンドレイク": ["マンドレイク"],
+      "レヒニッツ写本": ["レヒニッツ写本"],
+      "エーテル": ["エーテル"],
+      "アンティキティラ装置": ["アンティキティラ装置"],
+      "ヴォイニッチ手稿": ["ヴォイニッチ手稿"],
+      "水晶埴輪": ["水晶埴輪"],
+      "トーテムポール": ["トーテムポール"],
+      "古代の電池": ["古代の電池"],
+      "黄金の糸": ["黄金の糸", "黄金の巻糸", "黄金の布"],
+      "髪伸び人形": ["髪伸び人形"],
+      "円盤型ペンダント": ["円盤型ペンダント"],
+      "古代文明のメダル": ["古代文明のメダル"],
+      "中空十二面体": ["中空十二面体"],
+      "黄金シャトル": ["黄金シャトル"],
+      "古代ロケット": ["古代ロケット"],
+      "ミステリーストーン": ["ミステリーストーン"]
     };
 
     // アプリ内で表示に使う20種のリスト（並び順用）
@@ -56,6 +83,13 @@
     ];
     
     const GRADES = ["初級", "中級", "上級", "最上級"];
+    const GRADE_BY_RARITY = { N: "初級", R: "中級", SR: "上級", SSR: "最上級" };
+    const GRADE_TAG_CLASSES = {
+      "初級": "bg-sky-50 text-sky-900 border-sky-200",
+      "中級": "bg-cyan-100 text-cyan-950 border-cyan-300",
+      "上級": "bg-yellow-100 text-yellow-950 border-yellow-300",
+      "最上級": "bg-purple-100 text-purple-950 border-purple-300"
+    };
 
     const firebaseConfig = {
       apiKey: "AIzaSyAlm6ETTvRL1zlTMhAznbqYlh9NXThIZS0",
@@ -97,6 +131,53 @@
       );
     };
 
+    const normalizeSchaleList = (payload) => {
+      if (Array.isArray(payload)) return payload;
+      return Object.values(payload || {});
+    };
+
+    const getOopartBaseName = (item) => {
+      const itemId = Number(item.Id);
+      const idGroup = Math.floor(itemId / 10) * 10;
+      const gradeOffset = itemId - idGroup;
+      if (OOPARTS_ID_BASENAMES[idGroup] && gradeOffset >= 0 && gradeOffset <= 3) {
+        return OOPARTS_ID_BASENAMES[idGroup];
+      }
+
+      const match = Object.entries(OOPARTS_NAME_ALIASES).find(([_, aliases]) => {
+        return aliases.some(alias => item.Name?.includes(alias));
+      });
+      return match ? match[0] : null;
+    };
+
+    const getMaterialParts = (matName) => {
+      const grade = GRADES.find(g => matName.startsWith(g));
+      const baseName = grade ? matName.slice(grade.length) : matName;
+      return { grade, baseName };
+    };
+
+    const getMaterialOrder = (matName) => {
+      const { grade, baseName } = getMaterialParts(matName);
+      const baseIndex = OOPARTS_LIST.indexOf(baseName);
+      const gradeIndex = GRADES.indexOf(grade);
+      const normalizedBaseIndex = baseIndex >= 0 ? baseIndex : OOPARTS_LIST.length;
+      const normalizedGradeIndex = gradeIndex >= 0 ? gradeIndex : GRADES.length;
+      return normalizedBaseIndex * GRADES.length + normalizedGradeIndex;
+    };
+
+    const sortMaterialsByDefaultOrder = (materials) => {
+      return [...materials].sort((a, b) => {
+        const orderDiff = getMaterialOrder(a.name) - getMaterialOrder(b.name);
+        if (orderDiff !== 0) return orderDiff;
+        return a.name.localeCompare(b.name, 'ja');
+      });
+    };
+
+    const getGradeTagClasses = (matName) => {
+      const { grade } = getMaterialParts(matName);
+      return GRADE_TAG_CLASSES[grade] || "bg-gray-100 text-gray-700 border-gray-200";
+    };
+
     function App() {
       const [user, setUser] = useState(null);
       const [activeTab, setActiveTab] = useState('inventory');
@@ -104,41 +185,64 @@
       const [inventory, setInventory] = useState({ items: {}, updatedAt: null });
       const [importText, setImportText] = useState("");
       
-      const [sortConfig, setSortConfig] = useState({ key: 'difference', direction: 'asc' });
+      const [sortConfig, setSortConfig] = useState({ key: 'default', direction: 'asc' });
       const [gradeFilter, setGradeFilter] = useState({ '初級': true, '中級': true, '上級': true, '最上級': true });
+      const [studentSortMode, setStudentSortMode] = useState('name');
 
       const [masterData, setMasterData] = useState(null);
       const [isLoadingDB, setIsLoadingDB] = useState(true);
       const [dbError, setDbError] = useState(null);
+      const [dbSourceLabel, setDbSourceLabel] = useState("SchaleDB");
       const [selectedNewStudentId, setSelectedNewStudentId] = useState("");
 
       useEffect(() => {
         const fetchSchaleDB = async () => {
           try {
-            const studentsRes = await fetch("https://raw.githubusercontent.com/SchaleDB/SchaleDB/main/data/jp/students.min.json");
-            const studentsData = await studentsRes.json();
-            
-            const itemsRes = await fetch("https://raw.githubusercontent.com/SchaleDB/SchaleDB/main/data/jp/items.min.json");
-            const itemsData = await itemsRes.json();
+            let studentsData = null;
+            let itemsData = null;
+            let sourceLabel = "";
+            let lastError = null;
+
+            for (const source of SCHALE_DB_SOURCES) {
+              try {
+                const [studentsRes, itemsRes] = await Promise.all([
+                  fetch(`${source.baseUrl}/students.min.json`, { cache: "no-store" }),
+                  fetch(`${source.baseUrl}/items.min.json`, { cache: "no-store" })
+                ]);
+
+                if (!studentsRes.ok || !itemsRes.ok) {
+                  throw new Error(`${source.label}: students=${studentsRes.status}, items=${itemsRes.status}`);
+                }
+
+                const [studentsJson, itemsJson] = await Promise.all([
+                  studentsRes.json(),
+                  itemsRes.json()
+                ]);
+
+                studentsData = normalizeSchaleList(studentsJson);
+                itemsData = normalizeSchaleList(itemsJson);
+                sourceLabel = source.label;
+                break;
+              } catch (err) {
+                console.warn("Schale DB source failed:", source.baseUrl, err);
+                lastError = err;
+              }
+            }
+
+            if (!studentsData || !itemsData) {
+              throw lastError || new Error("Schale DB data source not found.");
+            }
+
+            setDbSourceLabel(sourceLabel);
             
             const itemDict = {};
             itemsData.forEach(item => {
-              // オーパーツのベース名が含まれているか確認（表記揺れを吸収）
-              const matchKey = Object.keys(OOPARTS_BASENAMES).find(key => item.Name.includes(key));
+              const unifiedName = getOopartBaseName(item);
+              const grade = GRADE_BY_RARITY[item.Rarity];
               
               // ノートやBDを除外し、オーパーツのみを抽出
-              if (matchKey && !item.Name.includes("ノート") && !item.Name.includes("BD") && !item.Name.includes("教育")) {
-                let grade = "";
-                if (item.Rarity === "N") grade = "初級";
-                else if (item.Rarity === "R") grade = "中級";
-                else if (item.Rarity === "SR") grade = "上級";
-                else if (item.Rarity === "SSR") grade = "最上級";
-                
-                if (grade) {
-                  // 表記揺れを統一されたアプリ名称（例: 初級ヴォルフスエック鉄鋼）に変換して保存
-                  const unifiedName = OOPARTS_BASENAMES[matchKey];
-                  itemDict[item.Id] = grade + unifiedName;
-                }
+              if (unifiedName && grade && item.Category === "Material" && !item.Name.includes("ノート") && !item.Name.includes("BD") && !item.Name.includes("教育")) {
+                itemDict[item.Id] = grade + unifiedName;
               }
             });
 
@@ -216,7 +320,7 @@
           if (currentUser) {
             const unsubStudents = db.collection(getCollectionPath(currentUser.uid, 'students'))
               .onSnapshot(snapshot => {
-                setStudents(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+                setStudents(snapshot.docs.map((doc, index) => ({ id: doc.id, orderIndex: index, ...doc.data() })));
               });
             const unsubInventory = db.doc(`${getCollectionPath(currentUser.uid, 'user_data')}/inventory`)
               .onSnapshot(doc => {
@@ -249,7 +353,7 @@
             }
           });
         }
-        return Object.entries(requirements).map(([name, count]) => ({ name, count }));
+        return sortMaterialsByDefaultOrder(Object.entries(requirements).map(([name, count]) => ({ name, count })));
       };
 
       const addStudent = async () => {
@@ -265,13 +369,22 @@
           studentId: targetMaster.id,
           name: targetMaster.name,
           currentSkills: { EX: 1, NS: 1, PS: 1, SS: 1 },
-          targetSkills: { EX: 1, NS: 1, PS: 1, SS: 1 }
+          targetSkills: { EX: 1, NS: 1, PS: 1, SS: 1 },
+          enabled: true,
+          createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
       };
 
       const deleteStudent = async (studentId) => {
         if (!user || !window.confirm("削除しますか？")) return;
         await db.doc(`${getCollectionPath(user.uid, 'students')}/${studentId}`).delete();
+      };
+
+      const toggleStudentEnabled = async (student) => {
+        if (!user) return;
+        await db.doc(`${getCollectionPath(user.uid, 'students')}/${student.id}`).update({
+          enabled: student.enabled === false
+        });
       };
 
       const updateSkill = async (student, skillType, isTarget, value) => {
@@ -355,6 +468,7 @@
         if (!masterData) return [];
         const totals = {};
         students.forEach(student => {
+          if (student.enabled === false) return;
           const reqs = calcRequirements(student);
           reqs.forEach(req => {
             if (!totals[req.name]) totals[req.name] = 0;
@@ -375,6 +489,9 @@
         });
 
         data.sort((a, b) => {
+          if (sortConfig.key === 'default') {
+            return getMaterialOrder(a.name) - getMaterialOrder(b.name);
+          }
           if (a[sortConfig.key] < b[sortConfig.key]) {
             return sortConfig.direction === 'asc' ? -1 : 1;
           }
@@ -402,13 +519,29 @@
       }
 
       const studentDropdownList = Object.values(masterData).sort((a, b) => a.name.localeCompare(b.name, 'ja'));
+      const getCreatedAtMillis = (student) => {
+        if (student.createdAt?.toMillis) return student.createdAt.toMillis();
+        if (typeof student.createdAt === 'number') return student.createdAt;
+        return null;
+      };
+      const sortedStudents = [...students].sort((a, b) => {
+        if (studentSortMode === 'created') {
+          const aTime = getCreatedAtMillis(a);
+          const bTime = getCreatedAtMillis(b);
+          if (aTime !== null && bTime !== null && aTime !== bTime) return aTime - bTime;
+          if (aTime !== null && bTime === null) return 1;
+          if (aTime === null && bTime !== null) return -1;
+          return (a.orderIndex || 0) - (b.orderIndex || 0);
+        }
+        return (a.name || '').localeCompare(b.name || '', 'ja');
+      });
 
       return (
         <div className="flex flex-col h-screen text-gray-800 font-sans">
           <header className="bg-blue-600 text-white p-4 shadow-md flex justify-between items-center">
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-bold">ブルアカ オーパーツ管理</h1>
-              <span className="text-[10px] bg-blue-800 px-1.5 py-0.5 rounded border border-blue-400">SchaleDB Sync</span>
+              <span className="text-[10px] bg-blue-800 px-1.5 py-0.5 rounded border border-blue-400">{dbSourceLabel}</span>
             </div>
             <div className="text-xs opacity-80">ID: {user.uid.substring(0, 5)}</div>
           </header>
@@ -432,7 +565,15 @@
                 <h2 className="text-lg font-bold mb-4 text-gray-700">必要オーパーツ集計</h2>
 
                 <div className="bg-white p-4 rounded-lg shadow mb-4">
-                  <div className="text-sm font-bold text-gray-700 mb-2">表示する素材グレード</div>
+                  <div className="flex justify-between items-center mb-2 gap-3">
+                    <div className="text-sm font-bold text-gray-700">表示する素材グレード</div>
+                    <button
+                      onClick={() => setSortConfig({ key: 'default', direction: 'asc' })}
+                      className={`text-xs font-bold px-2 py-1 rounded border transition-colors ${sortConfig.key === 'default' ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-gray-50 text-gray-500 border-gray-200 hover:bg-gray-100'}`}
+                    >
+                      標準順
+                    </button>
+                  </div>
                   <div className="flex flex-wrap gap-4">
                     {GRADES.map(grade => (
                       <label key={grade} className="flex items-center gap-1 cursor-pointer select-none">
@@ -553,34 +694,59 @@
             
             {activeTab === 'students' && (
               <div className="pb-8 animate-fade-in">
-                <div className="bg-white p-4 rounded-lg shadow mb-6 flex gap-2">
-                  <select 
-                    value={selectedNewStudentId} 
-                    onChange={(e) => setSelectedNewStudentId(e.target.value)}
-                    className="border rounded p-2 flex-1 text-sm bg-gray-50 focus:ring-2 focus:ring-blue-400 focus:outline-none"
-                  >
-                    {studentDropdownList.map(student => (
-                      <option key={student.id} value={student.id}>{student.name}</option>
-                    ))}
-                  </select>
-                  <button onClick={addStudent} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-1 text-sm shadow transition-colors">
-                    <IconPlus /> 追加
-                  </button>
+                <div className="bg-white p-4 rounded-lg shadow mb-6 space-y-3">
+                  <div className="flex gap-2">
+                    <select 
+                      value={selectedNewStudentId} 
+                      onChange={(e) => setSelectedNewStudentId(e.target.value)}
+                      className="border rounded p-2 flex-1 text-sm bg-gray-50 focus:ring-2 focus:ring-blue-400 focus:outline-none"
+                    >
+                      {studentDropdownList.map(student => (
+                        <option key={student.id} value={student.id}>{student.name}</option>
+                      ))}
+                    </select>
+                    <button onClick={addStudent} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-1 text-sm shadow transition-colors">
+                      <IconPlus /> 追加
+                    </button>
+                  </div>
+                  <div className="flex items-center justify-end gap-2">
+                    <span className="text-xs text-gray-500 font-medium">表示順</span>
+                    <select
+                      value={studentSortMode}
+                      onChange={(e) => setStudentSortMode(e.target.value)}
+                      className="border rounded p-1.5 text-xs bg-gray-50 focus:ring-2 focus:ring-blue-400 focus:outline-none"
+                    >
+                      <option value="name">あいうえお順</option>
+                      <option value="created">登録順</option>
+                    </select>
+                  </div>
                 </div>
 
                 <div className="space-y-4">
-                  {students.map(student => {
+                  {sortedStudents.map(student => {
                     const curSkills = student.currentSkills || { EX: 1, NS: 1, PS: 1, SS: 1 };
                     const tgtSkills = student.targetSkills || { EX: 1, NS: 1, PS: 1, SS: 1 };
                     const reqMats = calcRequirements(student);
+                    const studentEnabled = student.enabled !== false;
                     
                     const displayName = student.name || "不明な生徒";
 
                     return (
-                      <div key={student.id} className="bg-white p-4 rounded-lg shadow border border-gray-100">
-                        <div className="flex justify-between items-center mb-3 border-b pb-2">
+                      <div key={student.id} className={`bg-white p-4 rounded-lg shadow border transition-opacity ${studentEnabled ? 'border-gray-100' : 'border-gray-200 opacity-60'}`}>
+                        <div className="flex justify-between items-center mb-3 border-b pb-2 gap-3">
                           <h3 className="font-bold text-lg text-blue-900">{displayName}</h3>
-                          <button onClick={() => deleteStudent(student.id)} className="text-red-400 hover:text-red-600 p-1 transition-colors"><IconTrash /></button>
+                          <div className="flex items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => toggleStudentEnabled(student)}
+                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${studentEnabled ? 'bg-blue-600' : 'bg-gray-300'}`}
+                              title={studentEnabled ? '集計ON' : '集計OFF'}
+                            >
+                              <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${studentEnabled ? 'translate-x-5' : 'translate-x-0.5'}`}></span>
+                            </button>
+                            <span className={`text-[10px] font-bold w-7 ${studentEnabled ? 'text-blue-600' : 'text-gray-400'}`}>{studentEnabled ? 'ON' : 'OFF'}</span>
+                            <button onClick={() => deleteStudent(student.id)} className="text-red-400 hover:text-red-600 p-1 transition-colors"><IconTrash /></button>
+                          </div>
                         </div>
                         
                         <div className="flex flex-wrap justify-between gap-y-3 bg-gray-50 p-3 rounded">
@@ -627,7 +793,7 @@
                           ) : (
                             <div className="flex flex-wrap gap-2">
                               {reqMats.map(req => (
-                                <span key={req.name} className="bg-blue-50 text-blue-800 border border-blue-200 text-xs px-2 py-1 rounded-full font-medium">
+                                <span key={req.name} className={`border text-xs px-2 py-1 rounded-full font-bold ${getGradeTagClasses(req.name)}`}>
                                   {req.name}: {req.count}
                                 </span>
                               ))}
