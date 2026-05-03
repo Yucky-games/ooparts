@@ -118,7 +118,8 @@
                 reqArray.forEach((itemId, i) => {
                   const itemName = itemDict[itemId];
                   const count = s.SkillExMaterialAmount[index][i];
-                  if (itemName && itemName.match(/初級|中級|上級|最上級/)) {
+                  // 修正: OOPARTS_LISTに含まれる名前かどうかの判定を追加
+                  if (itemName && itemName.match(/初級|中級|上級|最上級/) && OOPARTS_LIST.some(oopart => itemName.includes(oopart))) {
                     itemsAtThisLevel[itemName] = count;
                   }
                 });
@@ -134,7 +135,8 @@
                   reqArray.forEach((itemId, i) => {
                     const itemName = itemDict[itemId];
                     const count = s.SkillMaterialAmount[index][i];
-                    if (itemName && itemName.match(/初級|中級|上級|最上級/)) {
+                    // 修正: OOPARTS_LISTに含まれる名前かどうかの判定を追加
+                    if (itemName && itemName.match(/初級|中級|上級|最上級/) && OOPARTS_LIST.some(oopart => itemName.includes(oopart))) {
                       itemsAtThisLevel[itemName] = count;
                     }
                   });
