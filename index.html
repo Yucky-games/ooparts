@@ -911,6 +911,7 @@
       const dashboardRows = dashboardData();
       const twitterProfile = user?.providerData?.find(provider => provider.providerId === "twitter.com");
       const userDisplayName = xUsername ? `@${xUsername}` : (user?.displayName || twitterProfile?.displayName || "Xユーザー");
+      const userPhotoUrl = user?.photoURL || twitterProfile?.photoURL;
       const getTabStyle = (tabName) => activeTab === tabName ? {
         borderColor: currentConfig.theme,
         color: currentConfig.theme
@@ -937,7 +938,18 @@
             <div className="flex flex-col items-end gap-1 text-right">
               {user ? (
                 <div className="flex flex-wrap items-center justify-end gap-2 text-xs">
-                  <IconX />
+                  {userPhotoUrl ? (
+                    <img
+                      src={userPhotoUrl}
+                      alt={userDisplayName}
+                      referrerPolicy="no-referrer"
+                      className="h-6 w-6 rounded-full border border-white/50 bg-white object-cover"
+                    />
+                  ) : (
+                    <span className="inline-flex h-6 w-6 items-center justify-center rounded-full border border-white/50 bg-white/20 text-[10px] font-bold">
+                      {userDisplayName.slice(0, 1)}
+                    </span>
+                  )}
                   <span className="max-w-[160px] truncate font-bold">{userDisplayName}</span>
                   <button
                     type="button"
@@ -959,7 +971,7 @@
                     <IconX /> {isAuthBusy ? "接続中..." : "Xでログイン"}
                   </button>
                   <p className="max-w-[220px] text-[10px] font-medium leading-snug text-white/90">
-                    ログインしていないため、入力内容は再読み込みで保持されません。
+                    ログインしていないため、入力内容は再読み込みで初期化されます。
                   </p>
                 </>
               )}
