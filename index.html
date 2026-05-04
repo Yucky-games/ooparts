@@ -92,6 +92,38 @@
       "上級": "bg-yellow-100 text-yellow-950 border-yellow-300",
       "最上級": "bg-purple-100 text-purple-950 border-purple-300"
     };
+    const INVENTORY_IMPORT_PROMPT = [
+      '添付した複数のスクリーンショット画像から、ゲーム「ブルーアーカイブ」のオーパーツの所持数を読み取ってください。',
+      '読み取った結果を以下の【指定フォーマット】に従って、合計80個の数字をカンマとスペース区切りの文字列（1行）として出力してください。',
+      '',
+      '【読み取りと出力のルール】',
+      '1. 読み取るオーパーツは、以下の20種類について「初級・中級・上級・最上級」の4つのグレード全てです。',
+      '2. 画像内に見当たらないオーパーツ、または未所持（アイコンが暗くなっている、南京錠マークがついている等）の場合は「0」として扱ってください。',
+      '3. 出力は、システムにそのままコピペして使用するため、余計な解説やマークダウン表記（``` など）を完全に省き、カンマ区切りの数字のみ（例：10, 5, 2, 0, 15, 10...）を出力してください。',
+      '',
+      '【指定フォーマット（全80要素の配列順）】',
+      '以下の20種類のオーパーツについて、それぞれ「初級、中級、上級、最上級」の順番で4つずつ数字を並べてください。',
+      '1. ネブラディスク',
+      '2. ファイストス円盤',
+      '3. ヴォルフスエック鉄鋼石',
+      '4. ニムルドレンズ',
+      '5. マンドレイク',
+      '6. レヒニッツ写本',
+      '7. エーテル',
+      '8. アンティキティラ装置',
+      '9. ヴォイニッチ手稿',
+      '10. 水晶埴輪',
+      '11. トーテムポール',
+      '12. 古代の電池',
+      '13. 黄金の糸',
+      '14. 髪伸び人形',
+      '15. 円盤型ペンダント',
+      '16. 古代文明のメダル',
+      '17. 中空十二面体',
+      '18. 黄金シャトル',
+      '19. 古代ロケット',
+      '20. ミステリーストーン'
+    ].join('\n');
 
     const firebaseConfig = {
       apiKey: "AIzaSyAlm6ETTvRL1zlTMhAznbqYlh9NXThIZS0",
@@ -505,6 +537,33 @@
         alert("所持数の一括登録が完了しました！");
       };
 
+      const copyImportPrompt = async () => {
+        try {
+          if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(INVENTORY_IMPORT_PROMPT);
+          } else {
+            const textArea = document.createElement('textarea');
+            textArea.value = INVENTORY_IMPORT_PROMPT;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-9999px';
+            document.body.appendChild(textArea);
+            let copied = false;
+            try {
+              textArea.focus();
+              textArea.select();
+              copied = document.execCommand('copy');
+            } finally {
+              document.body.removeChild(textArea);
+            }
+            if (!copied) throw new Error("execCommand copy returned false");
+          }
+          alert("プロンプトをコピーしました。");
+        } catch (err) {
+          console.error("Prompt copy failed:", err);
+          alert("コピーに失敗しました。ブラウザのクリップボード権限をご確認ください。");
+        }
+      };
+
       const handleReset = async () => {
         if (!user || !window.confirm("本当にすべての所持数と更新日時をリセット（0に）しますか？")) return;
         await db.doc(`${getCollectionPath(user.uid, 'user_data')}/inventory`).set({ items: {}, updatedAt: null });
@@ -707,8 +766,13 @@
                 </div>
 
                 <div className="bg-white p-4 rounded-lg shadow mb-6 border-t-4 border-blue-500">
-                  <div className="flex justify-between items-center mb-2">
-                    <h3 className="text-sm font-bold text-gray-700">AIからのCSVを貼り付け</h3>
+                  <div className="flex flex-wrap justify-between items-center gap-2 mb-2">
+                    <div className="flex items-center gap-2">
+                      <h3 className="text-sm font-bold text-gray-700">AIからのCSVを貼り付け</h3>
+                      <button onClick={copyImportPrompt} className="text-blue-600 hover:text-blue-800 text-xs font-bold bg-blue-50 border border-blue-100 px-2 py-1 rounded transition-colors">
+                        プロンプトをコピー
+                      </button>
+                    </div>
                     <button onClick={handleReset} className="text-red-500 hover:text-red-700 text-xs flex items-center gap-1 font-bold bg-red-50 px-2 py-1 rounded">
                       <IconTrash /> 全リセット
                     </button>
