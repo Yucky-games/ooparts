@@ -209,7 +209,8 @@
       projectId: "ba-materials-app",
       storageBucket: "ba-materials-app.firebasestorage.app",
       messagingSenderId: "488191018366",
-      appId: "1:488191018366:web:9bffda0a35b36c0af65f2f"
+      appId: "1:488191018366:web:9bffda0a35b36c0af65f2f",
+      measurementId: "G-70TKE1BMCY"
     };
 
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
@@ -224,6 +225,7 @@
     const IconPlus = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>;
     const IconTrash = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>;
     const IconRefresh = () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="animate-spin"><path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/><path d="M21 3v5h-5"/></svg>;
+    const IconX = () => <span className="inline-flex h-5 w-5 items-center justify-center rounded bg-black text-[11px] font-black text-white leading-none">X</span>;
 
     const InventoryInput = ({ value, onSave }) => {
       const [localValue, setLocalValue] = useState(value);
@@ -328,6 +330,10 @@
 
     function App() {
       const [user, setUser] = useState(null);
+      const [authReady, setAuthReady] = useState(false);
+      const [authError, setAuthError] = useState(null);
+      const [isAuthBusy, setIsAuthBusy] = useState(false);
+      const [xUsername, setXUsername] = useState("");
       const [appMode, setAppMode] = useState('ooparts');
       const [activeTab, setActiveTab] = useState('inventory');
       const [students, setStudents] = useState([]);
@@ -357,6 +363,41 @@
         setImportText("");
         setSortConfig({ key: 'default', direction: 'asc' });
         setGradeFilter({ '初級': true, '中級': true, '上級': true, '最上級': true });
+      };
+
+      const loginWithX = async () => {
+        setAuthError(null);
+        setIsAuthBusy(true);
+        const provider = new firebase.auth.TwitterAuthProvider();
+        try {
+          const result = await auth.signInWithPopup(provider);
+          const username = result?.additionalUserInfo?.username;
+          if (username && result?.user?.uid) {
+            localStorage.setItem(`ba-x-username-${result.user.uid}`, username);
+            setXUsername(username);
+          }
+        } catch (err) {
+          console.error("X Login Error:", err);
+          const isClosed = err?.code === "auth/popup-closed-by-user" || err?.code === "auth/cancelled-popup-request";
+          if (!isClosed) {
+            setAuthError("Xログインに失敗しました。Firebaseの認証設定とポップアップ許可をご確認ください。");
+          }
+        } finally {
+          setIsAuthBusy(false);
+        }
+      };
+
+      const logout = async () => {
+        setAuthError(null);
+        setIsAuthBusy(true);
+        try {
+          await auth.signOut();
+        } catch (err) {
+          console.error("Logout Error:", err);
+          setAuthError("ログアウトに失敗しました。時間をおいてもう一度お試しください。");
+        } finally {
+          setIsAuthBusy(false);
+        }
       };
 
       useEffect(() => {
@@ -500,23 +541,55 @@
       }, []);
 
       useEffect(() => {
-        auth.signInAnonymously().catch(err => console.error("Login Error:", err));
+        let unsubStudents = null;
+        let unsubInventory = null;
+        const detachUserDataListeners = () => {
+          if (unsubStudents) unsubStudents();
+          if (unsubInventory) unsubInventory();
+          unsubStudents = null;
+          unsubInventory = null;
+        };
+
         const unsubscribeAuth = auth.onAuthStateChanged((currentUser) => {
-          setUser(currentUser);
-          if (currentUser) {
-            const unsubStudents = db.collection(getCollectionPath(currentUser.uid, 'students'))
-              .onSnapshot(snapshot => {
-                setStudents(snapshot.docs.map((doc, index) => ({ id: doc.id, orderIndex: index, ...doc.data() })));
-              });
-            const unsubInventory = db.doc(`${getCollectionPath(currentUser.uid, 'user_data')}/inventory`)
-              .onSnapshot(doc => {
-                if (doc.exists) setInventory(doc.data());
-                else setInventory({ items: {}, updatedAt: null });
-              });
-            return () => { unsubStudents(); unsubInventory(); };
+          detachUserDataListeners();
+          const isTwitterUser = currentUser?.providerData?.some(provider => provider.providerId === "twitter.com");
+
+          if (!currentUser || !isTwitterUser) {
+            setUser(null);
+            setXUsername("");
+            setStudents([]);
+            setInventory({ items: {}, updatedAt: null });
+            setAuthReady(true);
+            if (currentUser) {
+              auth.signOut().catch(err => console.error("Unsupported auth user signout failed:", err));
+            }
+            return;
           }
+
+          setUser(currentUser);
+          setXUsername(localStorage.getItem(`ba-x-username-${currentUser.uid}`) || "");
+          setAuthReady(true);
+          unsubStudents = db.collection(getCollectionPath(currentUser.uid, 'students'))
+            .onSnapshot(snapshot => {
+              setStudents(snapshot.docs.map((doc, index) => ({ id: doc.id, orderIndex: index, ...doc.data() })));
+            }, err => {
+              console.error("Students snapshot error:", err);
+              setDbError("生徒データの同期に失敗しました。Firestoreの権限設定をご確認ください。");
+            });
+          unsubInventory = db.doc(`${getCollectionPath(currentUser.uid, 'user_data')}/inventory`)
+            .onSnapshot(doc => {
+              if (doc.exists) setInventory(doc.data());
+              else setInventory({ items: {}, updatedAt: null });
+            }, err => {
+              console.error("Inventory snapshot error:", err);
+              setDbError("所持数データの同期に失敗しました。Firestoreの権限設定をご確認ください。");
+            });
         });
-        return () => unsubscribeAuth();
+
+        return () => {
+          detachUserDataListeners();
+          unsubscribeAuth();
+        };
       }, []);
 
       const calcRequirements = (student) => {
@@ -548,39 +621,70 @@
       };
 
       const addStudent = async () => {
-        if (!user || !selectedNewStudentId || !masterData) return;
+        if (!selectedNewStudentId || !masterData) return;
         const targetMaster = masterData[selectedNewStudentId];
         
         if (students.find(s => s.studentId === selectedNewStudentId || s.name === targetMaster.name)) {
           alert("この生徒は既に登録されています。");
           return;
         }
-        
-        await db.collection(getCollectionPath(user.uid, 'students')).add({
+
+        const newStudent = {
           studentId: targetMaster.id,
           name: targetMaster.name,
           currentSkills: { EX: 1, NS: 1, PS: 1, SS: 1 },
           targetSkills: { EX: 1, NS: 1, PS: 1, SS: 1 },
           enabled: true,
-          completed: false,
+          completed: false
+        };
+
+        if (!user) {
+          setStudents(prev => [
+            ...prev,
+            {
+              ...newStudent,
+              id: `local-${Date.now()}-${Math.random().toString(36).slice(2)}`,
+              createdAt: Date.now(),
+              orderIndex: prev.length
+            }
+          ]);
+          return;
+        }
+        
+        await db.collection(getCollectionPath(user.uid, 'students')).add({
+          ...newStudent,
           createdAt: firebase.firestore.FieldValue.serverTimestamp()
         });
       };
 
       const deleteStudent = async (studentId) => {
-        if (!user || !window.confirm("削除しますか？")) return;
+        if (!window.confirm("削除しますか？")) return;
+        if (!user) {
+          setStudents(prev => prev.filter(student => student.id !== studentId));
+          return;
+        }
         await db.doc(`${getCollectionPath(user.uid, 'students')}/${studentId}`).delete();
       };
 
       const toggleStudentEnabled = async (student) => {
-        if (!user) return;
+        if (!user) {
+          setStudents(prev => prev.map(item => (
+            item.id === student.id ? { ...item, enabled: student.enabled === false } : item
+          )));
+          return;
+        }
         await db.doc(`${getCollectionPath(user.uid, 'students')}/${student.id}`).update({
           enabled: student.enabled === false
         });
       };
 
       const toggleStudentCompleted = async (student) => {
-        if (!user) return;
+        if (!user) {
+          setStudents(prev => prev.map(item => (
+            item.id === student.id ? { ...item, completed: student.completed !== true } : item
+          )));
+          return;
+        }
         await db.doc(`${getCollectionPath(user.uid, 'students')}/${student.id}`).update({
           completed: student.completed !== true
         });
@@ -594,7 +698,6 @@
       };
 
       const updateSkill = async (student, skillType, isTarget, value) => {
-        if (!user) return;
         const curSkills = { ...(student.currentSkills || { EX: 1, NS: 1, PS: 1, SS: 1 }) };
         const tgtSkills = { ...(student.targetSkills || { EX: 1, NS: 1, PS: 1, SS: 1 }) };
 
@@ -606,6 +709,13 @@
           if (curSkills[skillType] > tgtSkills[skillType]) tgtSkills[skillType] = value;
         }
 
+        if (!user) {
+          setStudents(prev => prev.map(item => (
+            item.id === student.id ? { ...item, currentSkills: curSkills, targetSkills: tgtSkills } : item
+          )));
+          return;
+        }
+
         await db.doc(`${getCollectionPath(user.uid, 'students')}/${student.id}`).update({
           currentSkills: curSkills,
           targetSkills: tgtSkills
@@ -613,15 +723,17 @@
       };
 
       const updateSingleItem = async (matName, count) => {
-        if (!user) return;
         const newItems = { ...(inventory.items || {}) };
         newItems[matName] = count;
         const now = new Date().toLocaleString('ja-JP');
+        if (!user) {
+          setInventory({ items: newItems, updatedAt: now });
+          return;
+        }
         await db.doc(`${getCollectionPath(user.uid, 'user_data')}/inventory`).set({ items: newItems, updatedAt: now }, { merge: true });
       };
 
       const handleImport = async () => {
-        if (!user) return;
         const text = importText.trim();
         if (!text) return;
         
@@ -653,7 +765,11 @@
         }
 
         const now = new Date().toLocaleString('ja-JP');
-        await db.doc(`${getCollectionPath(user.uid, 'user_data')}/inventory`).set({ items: newItems, updatedAt: now }, { merge: true });
+        if (user) {
+          await db.doc(`${getCollectionPath(user.uid, 'user_data')}/inventory`).set({ items: newItems, updatedAt: now }, { merge: true });
+        } else {
+          setInventory({ items: newItems, updatedAt: now });
+        }
         setImportText("");
         alert("所持数の一括登録が完了しました！");
       };
@@ -686,11 +802,15 @@
       };
 
       const handleReset = async () => {
-        if (!user || !window.confirm(`本当に${currentConfig.materialLabel}の所持数と更新日時をリセット（0に）しますか？`)) return;
+        if (!window.confirm(`本当に${currentConfig.materialLabel}の所持数と更新日時をリセット（0に）しますか？`)) return;
         const newItems = { ...(inventory.items || {}) };
         currentConfig.materialOrder.forEach(matName => {
           delete newItems[matName];
         });
+        if (!user) {
+          setInventory({ items: newItems, updatedAt: null });
+          return;
+        }
         await db.doc(`${getCollectionPath(user.uid, 'user_data')}/inventory`).set({ items: newItems, updatedAt: null });
       };
 
@@ -756,7 +876,7 @@
         </div>;
       }
 
-      if (!user || isLoadingDB) {
+      if (!authReady || isLoadingDB) {
         return <div style={{ backgroundColor: themeSoft, color: currentConfig.theme }} className="flex flex-col h-screen items-center justify-center gap-3">
           <IconRefresh />
           <p className="text-sm font-bold animate-pulse">最新のゲームデータを取得中...</p>
@@ -789,6 +909,8 @@
         return (a.name || '').localeCompare(b.name || '', 'ja');
       });
       const dashboardRows = dashboardData();
+      const twitterProfile = user?.providerData?.find(provider => provider.providerId === "twitter.com");
+      const userDisplayName = xUsername ? `@${xUsername}` : (user?.displayName || twitterProfile?.displayName || "Xユーザー");
       const getTabStyle = (tabName) => activeTab === tabName ? {
         borderColor: currentConfig.theme,
         color: currentConfig.theme
@@ -812,7 +934,41 @@
                 {currentConfig.switchLabel}
               </button>
             </div>
-            <div className="text-xs opacity-80">ID: {user.uid.substring(0, 5)}</div>
+            <div className="flex flex-col items-end gap-1 text-right">
+              {user ? (
+                <div className="flex flex-wrap items-center justify-end gap-2 text-xs">
+                  <IconX />
+                  <span className="max-w-[160px] truncate font-bold">{userDisplayName}</span>
+                  <button
+                    type="button"
+                    onClick={logout}
+                    disabled={isAuthBusy}
+                    className="rounded border border-white/40 bg-white/15 px-2 py-1 font-bold transition-colors hover:bg-white/25 disabled:opacity-50"
+                  >
+                    ログアウト
+                  </button>
+                </div>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={loginWithX}
+                    disabled={isAuthBusy}
+                    className="inline-flex items-center gap-1 rounded bg-white px-2 py-1 text-xs font-bold text-gray-900 shadow transition-colors hover:bg-gray-100 disabled:opacity-60"
+                  >
+                    <IconX /> {isAuthBusy ? "接続中..." : "Xでログイン"}
+                  </button>
+                  <p className="max-w-[220px] text-[10px] font-medium leading-snug text-white/90">
+                    ログインしていないため、入力内容は再読み込みで保持されません。
+                  </p>
+                </>
+              )}
+              {authError && (
+                <p className="max-w-[240px] rounded bg-white/90 px-2 py-1 text-[10px] font-bold leading-snug text-red-600">
+                  {authError}
+                </p>
+              )}
+            </div>
           </header>
 
           <div className="flex bg-white shadow-sm border-b">
@@ -977,7 +1133,11 @@
                     </div>
                   ))}
                 </div>
-                <p className="text-xs text-gray-500 mt-3 text-center">※数値を変更して枠外をタップすると自動で保存されます。</p>
+                <p className="text-xs text-gray-500 mt-3 text-center">
+                  {user
+                    ? "※数値を変更して枠外をタップすると自動で保存されます。"
+                    : "※未ログイン中の変更は、この画面を開いている間だけ保持されます。"}
+                </p>
               </div>
             )}
             
