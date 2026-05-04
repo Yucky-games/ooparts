@@ -20,9 +20,11 @@
     const { useState, useEffect } = React;
 
     const SCHALE_DB_SOURCES = [
-      { label: "SchaleDB Live", baseUrl: "https://schaledb.com/data/jp" },
-      { label: "SchaleDB Legacy", baseUrl: "https://raw.githubusercontent.com/SchaleDB/SchaleDB/main/data/jp" }
+      { label: "Schale DB", baseUrl: "https://schaledb.com/data/jp" },
+      { label: "Schale DB Legacy", baseUrl: "https://raw.githubusercontent.com/SchaleDB/SchaleDB/main/data/jp" }
     ];
+    const SCHALE_DB_CACHE_KEY = "ba-ooparts-schaledb-cache-v1";
+    const SCHALE_DB_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
     // SchaleDBのオーパーツID帯を、アプリで表示する統一名に対応させます。
     // 名称の表記揺れよりIDの方が安定するため、まずIDで判定します。
@@ -136,6 +138,29 @@
       return Object.values(payload || {});
     };
 
+    const readSchaleCache = () => {
+      try {
+        const cache = JSON.parse(localStorage.getItem(SCHALE_DB_CACHE_KEY));
+        if (!cache?.studentsData || !cache?.itemsData || !cache?.cachedAt) return null;
+        return {
+          ...cache,
+          isFresh: Date.now() - cache.cachedAt < SCHALE_DB_CACHE_TTL_MS
+        };
+      } catch (err) {
+        console.warn("Schale DB cache read failed:", err);
+        localStorage.removeItem(SCHALE_DB_CACHE_KEY);
+        return null;
+      }
+    };
+
+    const writeSchaleCache = (cache) => {
+      try {
+        localStorage.setItem(SCHALE_DB_CACHE_KEY, JSON.stringify(cache));
+      } catch (err) {
+        console.warn("Schale DB cache write failed:", err);
+      }
+    };
+
     const getOopartBaseName = (item) => {
       const itemId = Number(item.Id);
       const idGroup = Math.floor(itemId / 10) * 10;
@@ -192,7 +217,6 @@
       const [masterData, setMasterData] = useState(null);
       const [isLoadingDB, setIsLoadingDB] = useState(true);
       const [dbError, setDbError] = useState(null);
-      const [dbSourceLabel, setDbSourceLabel] = useState("SchaleDB");
       const [selectedNewStudentId, setSelectedNewStudentId] = useState("");
 
       useEffect(() => {
@@ -200,40 +224,57 @@
           try {
             let studentsData = null;
             let itemsData = null;
-            let sourceLabel = "";
             let lastError = null;
+            const cachedData = readSchaleCache();
 
-            for (const source of SCHALE_DB_SOURCES) {
-              try {
-                const [studentsRes, itemsRes] = await Promise.all([
-                  fetch(`${source.baseUrl}/students.min.json`, { cache: "no-store" }),
-                  fetch(`${source.baseUrl}/items.min.json`, { cache: "no-store" })
-                ]);
+            if (cachedData?.isFresh) {
+              studentsData = cachedData.studentsData;
+              itemsData = cachedData.itemsData;
+              console.info("Schale DB data loaded from cache.");
+            }
 
-                if (!studentsRes.ok || !itemsRes.ok) {
-                  throw new Error(`${source.label}: students=${studentsRes.status}, items=${itemsRes.status}`);
+            if (!studentsData || !itemsData) {
+              for (const source of SCHALE_DB_SOURCES) {
+                try {
+                  const [studentsRes, itemsRes] = await Promise.all([
+                    fetch(`${source.baseUrl}/students.min.json`),
+                    fetch(`${source.baseUrl}/items.min.json`)
+                  ]);
+
+                  if (!studentsRes.ok || !itemsRes.ok) {
+                    throw new Error(`${source.label}: students=${studentsRes.status}, items=${itemsRes.status}`);
+                  }
+
+                  const [studentsJson, itemsJson] = await Promise.all([
+                    studentsRes.json(),
+                    itemsRes.json()
+                  ]);
+
+                  studentsData = normalizeSchaleList(studentsJson);
+                  itemsData = normalizeSchaleList(itemsJson);
+                  writeSchaleCache({
+                    sourceLabel: source.label,
+                    cachedAt: Date.now(),
+                    studentsData,
+                    itemsData
+                  });
+                  break;
+                } catch (err) {
+                  console.warn("Schale DB source failed:", source.baseUrl, err);
+                  lastError = err;
                 }
-
-                const [studentsJson, itemsJson] = await Promise.all([
-                  studentsRes.json(),
-                  itemsRes.json()
-                ]);
-
-                studentsData = normalizeSchaleList(studentsJson);
-                itemsData = normalizeSchaleList(itemsJson);
-                sourceLabel = source.label;
-                break;
-              } catch (err) {
-                console.warn("Schale DB source failed:", source.baseUrl, err);
-                lastError = err;
               }
             }
 
             if (!studentsData || !itemsData) {
-              throw lastError || new Error("Schale DB data source not found.");
+              if (cachedData) {
+                console.warn("Using expired Schale DB cache because live fetch failed.");
+                studentsData = cachedData.studentsData;
+                itemsData = cachedData.itemsData;
+              } else {
+                throw lastError || new Error("Schale DB data source not found.");
+              }
             }
-
-            setDbSourceLabel(sourceLabel);
             
             const itemDict = {};
             itemsData.forEach(item => {
@@ -541,7 +582,6 @@
           <header className="bg-blue-600 text-white p-4 shadow-md flex justify-between items-center">
             <div className="flex items-center gap-2">
               <h1 className="text-xl font-bold">ブルアカ オーパーツ管理</h1>
-              <span className="text-[10px] bg-blue-800 px-1.5 py-0.5 rounded border border-blue-400">{dbSourceLabel}</span>
             </div>
             <div className="text-xs opacity-80">ID: {user.uid.substring(0, 5)}</div>
           </header>
@@ -813,6 +853,26 @@
             )}
             
           </main>
+          <footer className="bg-white border-t px-4 py-3 text-[11px] text-gray-500">
+            <div className="max-w-3xl mx-auto leading-relaxed space-y-1">
+              <p>
+                ゲームデータは
+                <a
+                  href="https://schaledb.com/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:underline font-bold mx-1"
+                >
+                  Schale DB
+                </a>
+                の公開データを活用しています。
+              </p>
+              <p>
+                本アプリは非公式ファンツールです。ブルーアーカイブ、ゲーム内情報、画像、アセット等の所有権および著作権は、それぞれの権利者に帰属します。本アプリはNexon、Nexon GamesおよびYostarとは一切関係ありません。
+              </p>
+              <p>Schale DBデータは取得頻度を抑えるため、ブラウザに最大24時間キャッシュします。</p>
+            </div>
+          </footer>
         </div>
       );
     }
