@@ -23,7 +23,7 @@
       { label: "Schale DB", baseUrl: "https://schaledb.com/data/jp" },
       { label: "Schale DB Legacy", baseUrl: "https://raw.githubusercontent.com/SchaleDB/SchaleDB/main/data/jp" }
     ];
-    const SCHALE_DB_CACHE_KEY = "ba-ooparts-schaledb-cache-v1";
+    const SCHALE_DB_CACHE_KEY = "ba-schaledb-cache-v1";
     const SCHALE_DB_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 
     // SchaleDBのオーパーツID帯を、アプリで表示する統一名に対応させます。
@@ -92,7 +92,7 @@
       "上級": "bg-yellow-100 text-yellow-950 border-yellow-300",
       "最上級": "bg-purple-100 text-purple-950 border-purple-300"
     };
-    const INVENTORY_IMPORT_PROMPT = [
+    const OOPARTS_IMPORT_PROMPT = [
       '添付した複数のスクリーンショット画像から、ゲーム「ブルーアーカイブ」のオーパーツの所持数を読み取ってください。',
       '読み取った結果を以下の【指定フォーマット】に従って、合計80個の数字をカンマとスペース区切りの文字列（1行）として出力してください。',
       '',
@@ -124,6 +124,84 @@
       '19. 古代ロケット',
       '20. ミステリーストーン'
     ].join('\n');
+
+    const SCHOOL_ORDER = [
+      "百鬼夜行", "レッドウィンター", "トリニティ", "ゲヘナ", "アビドス", "ミレニアム",
+      "アリウス", "山海経", "ヴァルキューレ", "ハイランダー", "ワイルドハント"
+    ];
+    const BD_NOTE_TYPES = [
+      { key: "bd", title: "戦術教育BD", shortTitle: "BD", baseId: 3000, subCategory: "CDItem" },
+      { key: "note", title: "技術ノート", shortTitle: "ノート", baseId: 4000, subCategory: "BookItem" }
+    ];
+    const makeBdNoteName = (type, grade, school) => `${grade}${type.title}（${school}）`;
+    const BD_NOTE_MATERIAL_ORDER = BD_NOTE_TYPES.flatMap(type => {
+      return SCHOOL_ORDER.flatMap(school => GRADES.map(grade => makeBdNoteName(type, grade, school)));
+    });
+    const OOPARTS_MATERIAL_ORDER = OOPARTS_LIST.flatMap(oopart => GRADES.map(grade => `${grade}${oopart}`));
+    const BD_NOTES_IMPORT_PROMPT = [
+      '添付した複数のスクリーンショット画像から、ゲーム「ブルーアーカイブ」のBD/ノートの所持数を読み取ってください。',
+      '読み取った結果を以下の【指定フォーマット】に従って、合計88個の数字をカンマとスペース区切りの文字列（1行）として出力してください。',
+      '',
+      '【読み取りと出力のルール】',
+      '1. 読み取る素材は、以下の11校について「戦術教育BD」と「技術ノート」のそれぞれ「初級・中級・上級・最上級」の4つのグレード全てです。',
+      '2. 画像内に見当たらない素材、または未所持（アイコンが暗くなっている、南京錠マークがついている等）の場合は「0」として扱ってください。',
+      '3. 出力は、システムにそのままコピペして使用するため、余計な解説やマークダウン表記（``` など）を完全に省き、カンマ区切りの数字のみ（例：10, 5, 2, 0, 15, 10...）を出力してください。',
+      '',
+      '【指定フォーマット（全88要素の配列順）】',
+      '以下の順番で、それぞれ「初級、中級、上級、最上級」の4つずつ数字を並べてください。',
+      ...BD_NOTE_TYPES.flatMap((type, typeIndex) => (
+        SCHOOL_ORDER.map((school, schoolIndex) => `${typeIndex * SCHOOL_ORDER.length + schoolIndex + 1}. ${type.title}（${school}）`)
+      ))
+    ].join('\n');
+
+    const APP_CONFIGS = {
+      ooparts: {
+        mode: "ooparts",
+        title: "ブルアカ オーパーツ管理",
+        switchLabel: "BD/ノート管理へ",
+        switchMode: "bdnotes",
+        theme: "#12BBFF",
+        materialLabel: "オーパーツ",
+        dashboardTitle: "必要オーパーツ集計",
+        inventoryHeading: "オーパーツ所持数入力・CSVインポート",
+        rowHeader: "オーパーツ名",
+        materialOrder: OOPARTS_MATERIAL_ORDER,
+        csvLengths: [80, 40],
+        csvLengthText: "80個（全グレード）または40個（上級・最上級のみ）",
+        csvPlaceholder: "例: 10, 5, 2, 0, 15, 10... (80個の数字)",
+        importPrompt: OOPARTS_IMPORT_PROMPT,
+        inventoryGroups: [
+          {
+            title: "",
+            rowHeader: "オーパーツ名",
+            rows: OOPARTS_LIST,
+            getMaterialName: (row, grade) => `${grade}${row}`
+          }
+        ]
+      },
+      bdnotes: {
+        mode: "bdnotes",
+        title: "ブルアカ BD/ノート管理",
+        switchLabel: "オーパーツ管理へ",
+        switchMode: "ooparts",
+        theme: "#C978F0",
+        materialLabel: "BD/ノート",
+        dashboardTitle: "必要 BD/ノート集計",
+        inventoryHeading: "BD/ノート所持数入力・CSVインポート",
+        rowHeader: "BD/ノート名",
+        materialOrder: BD_NOTE_MATERIAL_ORDER,
+        csvLengths: [88],
+        csvLengthText: "88個（BD/ノート全グレード）",
+        csvPlaceholder: "例: 10, 5, 2, 0, 15, 10... (88個の数字)",
+        importPrompt: BD_NOTES_IMPORT_PROMPT,
+        inventoryGroups: BD_NOTE_TYPES.map(type => ({
+          title: type.title,
+          rowHeader: "学校名",
+          rows: SCHOOL_ORDER,
+          getMaterialName: (school, grade) => makeBdNoteName(type, grade, school)
+        }))
+      }
+    };
 
     const firebaseConfig = {
       apiKey: "AIzaSyAlm6ETTvRL1zlTMhAznbqYlh9NXThIZS0",
@@ -160,7 +238,7 @@
           type="number" min="0" value={localValue === 0 ? '' : localValue} placeholder="0"
           onChange={(e) => setLocalValue(e.target.value)}
           onBlur={handleBlur}
-          className="w-14 border rounded p-1 text-right text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+          className="w-14 border rounded p-1 text-right text-sm focus:border-gray-500 focus:outline-none focus:ring-1 focus:ring-gray-300"
         />
       );
     };
@@ -207,24 +285,35 @@
       return match ? match[0] : null;
     };
 
+    const getBdNoteMaterialName = (item) => {
+      if (item.Category !== "Material") return null;
+      const itemId = Number(item.Id);
+      const type = BD_NOTE_TYPES.find(type => itemId >= type.baseId && itemId <= type.baseId + 103);
+      if (!type || item.SubCategory !== type.subCategory) return null;
+
+      const relativeId = itemId - type.baseId;
+      const schoolIndex = Math.floor(relativeId / 10);
+      const gradeIndex = relativeId % 10;
+      const school = SCHOOL_ORDER[schoolIndex];
+      const grade = GRADES[gradeIndex];
+      if (!school || !grade) return null;
+      return makeBdNoteName(type, grade, school);
+    };
+
     const getMaterialParts = (matName) => {
       const grade = GRADES.find(g => matName.startsWith(g));
       const baseName = grade ? matName.slice(grade.length) : matName;
       return { grade, baseName };
     };
 
-    const getMaterialOrder = (matName) => {
-      const { grade, baseName } = getMaterialParts(matName);
-      const baseIndex = OOPARTS_LIST.indexOf(baseName);
-      const gradeIndex = GRADES.indexOf(grade);
-      const normalizedBaseIndex = baseIndex >= 0 ? baseIndex : OOPARTS_LIST.length;
-      const normalizedGradeIndex = gradeIndex >= 0 ? gradeIndex : GRADES.length;
-      return normalizedBaseIndex * GRADES.length + normalizedGradeIndex;
+    const getMaterialOrder = (matName, materialOrder) => {
+      const orderIndex = materialOrder.indexOf(matName);
+      return orderIndex >= 0 ? orderIndex : materialOrder.length;
     };
 
-    const sortMaterialsByDefaultOrder = (materials) => {
+    const sortMaterialsByDefaultOrder = (materials, materialOrder) => {
       return [...materials].sort((a, b) => {
-        const orderDiff = getMaterialOrder(a.name) - getMaterialOrder(b.name);
+        const orderDiff = getMaterialOrder(a.name, materialOrder) - getMaterialOrder(b.name, materialOrder);
         if (orderDiff !== 0) return orderDiff;
         return a.name.localeCompare(b.name, 'ja');
       });
@@ -235,8 +324,11 @@
       return GRADE_TAG_CLASSES[grade] || "bg-gray-100 text-gray-700 border-gray-200";
     };
 
+    const withAlpha = (hexColor, alphaHex) => `${hexColor}${alphaHex}`;
+
     function App() {
       const [user, setUser] = useState(null);
+      const [appMode, setAppMode] = useState('ooparts');
       const [activeTab, setActiveTab] = useState('inventory');
       const [students, setStudents] = useState([]);
       const [inventory, setInventory] = useState({ items: {}, updatedAt: null });
@@ -253,6 +345,19 @@
       const [isLoadingDB, setIsLoadingDB] = useState(true);
       const [dbError, setDbError] = useState(null);
       const [selectedNewStudentId, setSelectedNewStudentId] = useState("");
+      const currentConfig = APP_CONFIGS[appMode];
+      const materialNameSet = new Set(currentConfig.materialOrder);
+
+      useEffect(() => {
+        document.title = currentConfig.title;
+      }, [currentConfig.title]);
+
+      const switchAppMode = (mode) => {
+        setAppMode(mode);
+        setImportText("");
+        setSortConfig({ key: 'default', direction: 'asc' });
+        setGradeFilter({ '初級': true, '中級': true, '上級': true, '最上級': true });
+      };
 
       useEffect(() => {
         const fetchSchaleDB = async () => {
@@ -316,9 +421,14 @@
               const unifiedName = getOopartBaseName(item);
               const grade = GRADE_BY_RARITY[item.Rarity];
               
-              // ノートやBDを除外し、オーパーツのみを抽出
+              // オーパーツは名称揺れを吸収し、BD/ノートは別途ID帯で判定します。
               if (unifiedName && grade && item.Category === "Material" && !item.Name.includes("ノート") && !item.Name.includes("BD") && !item.Name.includes("教育")) {
                 itemDict[item.Id] = grade + unifiedName;
+              }
+
+              const bdNoteName = getBdNoteMaterialName(item);
+              if (bdNoteName) {
+                itemDict[item.Id] = bdNoteName;
               }
             });
 
@@ -338,7 +448,7 @@
                 reqArray.forEach((itemId, i) => {
                   const appItemName = itemDict[itemId];
                   const count = s.SkillExMaterialAmount[index][i];
-                  // itemDictに登録されている（＝オーパーツである）場合のみ抽出
+                  // itemDictに登録されている（＝このアプリで扱う素材である）場合のみ抽出
                   if (appItemName) {
                     itemsAtThisLevel[appItemName] = count;
                   }
@@ -355,7 +465,7 @@
                   reqArray.forEach((itemId, i) => {
                     const appItemName = itemDict[itemId];
                     const count = s.SkillMaterialAmount[index][i];
-                    // itemDictに登録されている（＝オーパーツである）場合のみ抽出
+                    // itemDictに登録されている（＝このアプリで扱う素材である）場合のみ抽出
                     if (appItemName) {
                       itemsAtThisLevel[appItemName] = count;
                     }
@@ -429,7 +539,12 @@
             }
           });
         }
-        return sortMaterialsByDefaultOrder(Object.entries(requirements).map(([name, count]) => ({ name, count })));
+        return sortMaterialsByDefaultOrder(
+          Object.entries(requirements)
+            .filter(([name]) => materialNameSet.has(name))
+            .map(([name, count]) => ({ name, count })),
+          currentConfig.materialOrder
+        );
       };
 
       const addStudent = async () => {
@@ -512,24 +627,30 @@
         
         const values = text.split(/[\s,]+/).map(v => parseInt(v, 10)).filter(v => !isNaN(v));
         
-        if (values.length !== 80 && values.length !== 40) {
-          alert(`データの数が合いません。80個（全グレード）または40個（上級・最上級のみ）の数値を入力してください。\n（現在認識した数: ${values.length}個）`);
+        if (!currentConfig.csvLengths.includes(values.length)) {
+          alert(`データの数が合いません。${currentConfig.csvLengthText}の数値を入力してください。\n（現在認識した数: ${values.length}個）`);
           return;
         }
 
         const newItems = { ...(inventory.items || {}) };
         let vIndex = 0;
 
-        OOPARTS_LIST.forEach(oopart => {
-          if (values.length === 80) {
-            GRADES.forEach(grade => {
-              newItems[`${grade}${oopart}`] = values[vIndex++];
-            });
-          } else if (values.length === 40) {
-            newItems[`上級${oopart}`] = values[vIndex++];
-            newItems[`最上級${oopart}`] = values[vIndex++];
-          }
-        });
+        if (appMode === 'ooparts') {
+          OOPARTS_LIST.forEach(oopart => {
+            if (values.length === 80) {
+              GRADES.forEach(grade => {
+                newItems[`${grade}${oopart}`] = values[vIndex++];
+              });
+            } else if (values.length === 40) {
+              newItems[`上級${oopart}`] = values[vIndex++];
+              newItems[`最上級${oopart}`] = values[vIndex++];
+            }
+          });
+        } else {
+          currentConfig.materialOrder.forEach(matName => {
+            newItems[matName] = values[vIndex++];
+          });
+        }
 
         const now = new Date().toLocaleString('ja-JP');
         await db.doc(`${getCollectionPath(user.uid, 'user_data')}/inventory`).set({ items: newItems, updatedAt: now }, { merge: true });
@@ -540,10 +661,10 @@
       const copyImportPrompt = async () => {
         try {
           if (navigator.clipboard?.writeText) {
-            await navigator.clipboard.writeText(INVENTORY_IMPORT_PROMPT);
+            await navigator.clipboard.writeText(currentConfig.importPrompt);
           } else {
             const textArea = document.createElement('textarea');
-            textArea.value = INVENTORY_IMPORT_PROMPT;
+            textArea.value = currentConfig.importPrompt;
             textArea.style.position = 'fixed';
             textArea.style.left = '-9999px';
             document.body.appendChild(textArea);
@@ -565,8 +686,12 @@
       };
 
       const handleReset = async () => {
-        if (!user || !window.confirm("本当にすべての所持数と更新日時をリセット（0に）しますか？")) return;
-        await db.doc(`${getCollectionPath(user.uid, 'user_data')}/inventory`).set({ items: {}, updatedAt: null });
+        if (!user || !window.confirm(`本当に${currentConfig.materialLabel}の所持数と更新日時をリセット（0に）しますか？`)) return;
+        const newItems = { ...(inventory.items || {}) };
+        currentConfig.materialOrder.forEach(matName => {
+          delete newItems[matName];
+        });
+        await db.doc(`${getCollectionPath(user.uid, 'user_data')}/inventory`).set({ items: newItems, updatedAt: null });
       };
 
       const requestSort = (key) => {
@@ -579,7 +704,7 @@
 
       const getSortIcon = (key) => {
         if (sortConfig.key !== key) return <span className="text-gray-300 text-xs ml-1">↕</span>;
-        return sortConfig.direction === 'asc' ? <span className="text-blue-600 text-xs ml-1">▲</span> : <span className="text-blue-600 text-xs ml-1">▼</span>;
+        return sortConfig.direction === 'asc' ? <span style={{ color: currentConfig.theme }} className="text-xs ml-1">▲</span> : <span style={{ color: currentConfig.theme }} className="text-xs ml-1">▼</span>;
       };
 
       const dashboardData = () => {
@@ -608,7 +733,7 @@
 
         data.sort((a, b) => {
           if (sortConfig.key === 'default') {
-            return getMaterialOrder(a.name) - getMaterialOrder(b.name);
+            return getMaterialOrder(a.name, currentConfig.materialOrder) - getMaterialOrder(b.name, currentConfig.materialOrder);
           }
           if (a[sortConfig.key] < b[sortConfig.key]) {
             return sortConfig.direction === 'asc' ? -1 : 1;
@@ -621,6 +746,8 @@
 
         return data;
       };
+      const themeSoft = withAlpha(currentConfig.theme, "18");
+      const themeBorder = withAlpha(currentConfig.theme, "55");
 
       if (dbError) {
         return <div className="flex flex-col h-screen items-center justify-center bg-red-50 text-red-600 p-4 text-center">
@@ -630,7 +757,7 @@
       }
 
       if (!user || isLoadingDB) {
-        return <div className="flex flex-col h-screen items-center justify-center bg-blue-50 text-blue-900 gap-3">
+        return <div style={{ backgroundColor: themeSoft, color: currentConfig.theme }} className="flex flex-col h-screen items-center justify-center gap-3">
           <IconRefresh />
           <p className="text-sm font-bold animate-pulse">最新のゲームデータを取得中...</p>
         </div>;
@@ -662,24 +789,40 @@
         return (a.name || '').localeCompare(b.name || '', 'ja');
       });
       const dashboardRows = dashboardData();
+      const getTabStyle = (tabName) => activeTab === tabName ? {
+        borderColor: currentConfig.theme,
+        color: currentConfig.theme
+      } : {};
+      const getSoftActiveStyle = (isActive) => isActive ? {
+        backgroundColor: themeSoft,
+        borderColor: themeBorder,
+        color: currentConfig.theme
+      } : {};
 
       return (
         <div className="flex flex-col h-screen text-gray-800 font-sans">
-          <header className="bg-blue-600 text-white p-4 shadow-md flex justify-between items-center">
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold">ブルアカ オーパーツ管理</h1>
+          <header style={{ backgroundColor: currentConfig.theme }} className="text-white p-4 shadow-md flex justify-between items-center">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-xl font-bold">{currentConfig.title}</h1>
+              <button
+                type="button"
+                onClick={() => switchAppMode(currentConfig.switchMode)}
+                className="text-xs font-bold bg-white/20 hover:bg-white/30 border border-white/40 px-2 py-1 rounded transition-colors"
+              >
+                {currentConfig.switchLabel}
+              </button>
             </div>
             <div className="text-xs opacity-80">ID: {user.uid.substring(0, 5)}</div>
           </header>
 
           <div className="flex bg-white shadow-sm border-b">
-            <button onClick={() => setActiveTab('dashboard')} className={`flex-1 p-3 flex justify-center items-center gap-2 border-b-2 ${activeTab === 'dashboard' ? 'border-blue-600 text-blue-600 font-bold' : 'border-transparent text-gray-500'}`}>
+            <button onClick={() => setActiveTab('dashboard')} style={getTabStyle('dashboard')} className={`flex-1 p-3 flex justify-center items-center gap-2 border-b-2 ${activeTab === 'dashboard' ? 'font-bold' : 'border-transparent text-gray-500'}`}>
               <IconChart /> 不足確認
             </button>
-            <button onClick={() => setActiveTab('students')} className={`flex-1 p-3 flex justify-center items-center gap-2 border-b-2 ${activeTab === 'students' ? 'border-blue-600 text-blue-600 font-bold' : 'border-transparent text-gray-500'}`}>
+            <button onClick={() => setActiveTab('students')} style={getTabStyle('students')} className={`flex-1 p-3 flex justify-center items-center gap-2 border-b-2 ${activeTab === 'students' ? 'font-bold' : 'border-transparent text-gray-500'}`}>
               <IconUser /> 育成目標
             </button>
-            <button onClick={() => setActiveTab('inventory')} className={`flex-1 p-3 flex justify-center items-center gap-2 border-b-2 ${activeTab === 'inventory' ? 'border-blue-600 text-blue-600 font-bold' : 'border-transparent text-gray-500'}`}>
+            <button onClick={() => setActiveTab('inventory')} style={getTabStyle('inventory')} className={`flex-1 p-3 flex justify-center items-center gap-2 border-b-2 ${activeTab === 'inventory' ? 'font-bold' : 'border-transparent text-gray-500'}`}>
               <IconPackage /> 所持数
             </button>
           </div>
@@ -688,7 +831,7 @@
             
             {activeTab === 'dashboard' && (
               <div className="pb-8 animate-fade-in">
-                <h2 className="text-lg font-bold mb-4 text-gray-700">必要オーパーツ集計</h2>
+                <h2 className="text-lg font-bold mb-4 text-gray-700">{currentConfig.dashboardTitle}</h2>
 
                 <div className="bg-white p-4 rounded-lg shadow mb-4">
                   <div className="text-sm font-bold text-gray-700 mb-2">表示する素材グレード</div>
@@ -699,7 +842,8 @@
                           type="checkbox" 
                           checked={gradeFilter[grade]} 
                           onChange={(e) => setGradeFilter({...gradeFilter, [grade]: e.target.checked})}
-                          className="w-4 h-4 text-blue-600 rounded border-gray-300 focus:ring-blue-500"
+                          style={{ accentColor: currentConfig.theme }}
+                          className="w-4 h-4 rounded border-gray-300"
                         />
                         <span className="text-sm">{grade}</span>
                       </label>
@@ -711,7 +855,8 @@
                   <div className="p-2 border-b bg-gray-50">
                     <button
                       onClick={() => setSortConfig({ key: 'default', direction: 'asc' })}
-                      className={`text-xs font-bold px-2 py-1 rounded border transition-colors ${sortConfig.key === 'default' ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100'}`}
+                      style={getSoftActiveStyle(sortConfig.key === 'default')}
+                      className={`text-xs font-bold px-2 py-1 rounded border transition-colors ${sortConfig.key === 'default' ? '' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-100'}`}
                     >
                       標準順
                     </button>
@@ -720,7 +865,7 @@
                     <thead>
                       <tr className="bg-gray-100 text-gray-600 text-sm select-none">
                         <th className="p-3 border-b cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => requestSort('name')}>
-                          オーパーツ名 {getSortIcon('name')}
+                          {currentConfig.rowHeader} {getSortIcon('name')}
                         </th>
                         <th className="p-3 border-b text-right cursor-pointer hover:bg-gray-200 transition-colors" onClick={() => requestSort('required')}>
                           必要 {getSortIcon('required')}
@@ -741,7 +886,7 @@
                           <tr key={idx} className="border-b hover:bg-gray-50 text-sm">
                             <td className="p-3 font-medium">{item.name}</td>
                             <td className="p-3 text-right">{item.required}</td>
-                            <td className="p-3 text-right text-blue-600 font-semibold">{item.owned}</td>
+                            <td style={{ color: currentConfig.theme }} className="p-3 text-right font-semibold">{item.owned}</td>
                             <td className={`p-3 text-right font-bold ${item.difference < 0 ? 'text-red-500' : 'text-green-500'}`}>
                               {item.difference < 0 ? item.difference : `+${item.difference}`}
                             </td>
@@ -757,7 +902,7 @@
             {activeTab === 'inventory' && (
               <div className="pb-8 animate-fade-in">
                 <div className="flex justify-between items-end mb-4">
-                  <h2 className="text-lg font-bold text-gray-700">所持数入力・CSVインポート</h2>
+                  <h2 className="text-lg font-bold text-gray-700">{currentConfig.inventoryHeading}</h2>
                   {inventory.updatedAt && (
                     <span className="text-xs text-gray-500 font-medium bg-gray-200 px-2 py-1 rounded">
                       最終更新: {inventory.updatedAt}
@@ -765,11 +910,15 @@
                   )}
                 </div>
 
-                <div className="bg-white p-4 rounded-lg shadow mb-6 border-t-4 border-blue-500">
+                <div style={{ borderTopColor: currentConfig.theme }} className="bg-white p-4 rounded-lg shadow mb-6 border-t-4">
                   <div className="flex flex-wrap justify-between items-center gap-2 mb-2">
                     <div className="flex items-center gap-2">
                       <h3 className="text-sm font-bold text-gray-700">AIからのCSVを貼り付け</h3>
-                      <button onClick={copyImportPrompt} className="text-blue-600 hover:text-blue-800 text-xs font-bold bg-blue-50 border border-blue-100 px-2 py-1 rounded transition-colors">
+                      <button
+                        onClick={copyImportPrompt}
+                        style={{ color: currentConfig.theme, backgroundColor: themeSoft, borderColor: themeBorder }}
+                        className="text-xs font-bold border px-2 py-1 rounded transition-colors"
+                      >
                         プロンプトをコピー
                       </button>
                     </div>
@@ -778,8 +927,8 @@
                     </button>
                   </div>
                   <textarea
-                    className="w-full border border-gray-300 rounded p-2 text-sm bg-gray-50 h-20 mb-3 focus:ring-2 focus:ring-blue-400 focus:outline-none"
-                    placeholder="例: 10, 5, 2, 0, 15, 10... (80個の数字)"
+                    className="w-full border border-gray-300 rounded p-2 text-sm bg-gray-50 h-20 mb-3 focus:ring-2 focus:ring-gray-300 focus:outline-none"
+                    placeholder={currentConfig.csvPlaceholder}
                     value={importText}
                     onChange={(e) => setImportText(e.target.value)}
                   ></textarea>
@@ -788,36 +937,45 @@
                   </button>
                 </div>
 
-                <div className="bg-white rounded-lg shadow overflow-x-auto">
-                  <table className="w-full text-left border-collapse min-w-[400px]">
-                    <thead>
-                      <tr className="bg-gray-100 text-gray-600 text-xs text-center border-b-2">
-                        <th className="p-2 border-r sticky left-0 bg-gray-100 shadow-[1px_0_0_0_#e5e7eb] z-10 text-left">オーパーツ名</th>
-                        {GRADES.map(g => <th key={g} className="p-2 w-16">{g}</th>)}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {OOPARTS_LIST.map((oopart, idx) => (
-                        <tr key={oopart} className={`border-b hover:bg-blue-50 transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
-                          <td className="p-2 font-medium text-xs sticky left-0 bg-inherit border-r shadow-[1px_0_0_0_#e5e7eb] z-10">
-                            {oopart}
-                          </td>
-                          {GRADES.map(grade => {
-                            const matName = `${grade}${oopart}`;
-                            const count = inventory.items?.[matName] || 0;
-                            return (
-                              <td key={grade} className="p-1 text-center">
-                                <InventoryInput 
-                                  value={count} 
-                                  onSave={(val) => updateSingleItem(matName, val)} 
-                                />
+                <div className="space-y-6">
+                  {currentConfig.inventoryGroups.map(group => (
+                    <div key={group.title || currentConfig.materialLabel} className="bg-white rounded-lg shadow overflow-x-auto">
+                      {group.title && (
+                        <div className="px-3 py-2 text-sm font-bold text-gray-700 border-b bg-gray-50">
+                          {group.title}
+                        </div>
+                      )}
+                      <table className="w-full text-left border-collapse min-w-[400px]">
+                        <thead>
+                          <tr className="bg-gray-100 text-gray-600 text-xs text-center border-b-2">
+                            <th className="p-2 border-r sticky left-0 bg-gray-100 shadow-[1px_0_0_0_#e5e7eb] z-10 text-left">{group.rowHeader}</th>
+                            {GRADES.map(g => <th key={g} className="p-2 w-16">{g}</th>)}
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {group.rows.map((row, idx) => (
+                            <tr key={row} className={`border-b transition-colors ${idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'}`}>
+                              <td className="p-2 font-medium text-xs sticky left-0 bg-inherit border-r shadow-[1px_0_0_0_#e5e7eb] z-10">
+                                {row}
                               </td>
-                            );
-                          })}
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+                              {GRADES.map(grade => {
+                                const matName = group.getMaterialName(row, grade);
+                                const count = inventory.items?.[matName] || 0;
+                                return (
+                                  <td key={grade} className="p-1 text-center">
+                                    <InventoryInput 
+                                      value={count} 
+                                      onSave={(val) => updateSingleItem(matName, val)} 
+                                    />
+                                  </td>
+                                );
+                              })}
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ))}
                 </div>
                 <p className="text-xs text-gray-500 mt-3 text-center">※数値を変更して枠外をタップすると自動で保存されます。</p>
               </div>
@@ -830,13 +988,17 @@
                     <select 
                       value={selectedNewStudentId} 
                       onChange={(e) => setSelectedNewStudentId(e.target.value)}
-                      className="border rounded p-2 flex-1 text-sm bg-gray-50 focus:ring-2 focus:ring-blue-400 focus:outline-none"
+                      className="border rounded p-2 flex-1 text-sm bg-gray-50 focus:ring-2 focus:ring-gray-300 focus:outline-none"
                     >
                       {studentDropdownList.map(student => (
                         <option key={student.id} value={student.id}>{student.name}</option>
                       ))}
                     </select>
-                    <button onClick={addStudent} className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-1 text-sm shadow transition-colors">
+                    <button
+                      onClick={addStudent}
+                      style={{ backgroundColor: currentConfig.theme }}
+                      className="text-white px-4 py-2 rounded-lg flex items-center gap-1 text-sm shadow transition-colors"
+                    >
                       <IconPlus /> 追加
                     </button>
                   </div>
@@ -859,7 +1021,8 @@
                             key={option.value}
                             type="button"
                             onClick={() => setStudentEnabledFilter(option.value)}
-                            className={`px-2 py-1.5 text-xs font-bold border-r last:border-r-0 transition-colors ${studentEnabledFilter === option.value ? 'bg-blue-50 text-blue-600 border-blue-200' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}
+                            style={getSoftActiveStyle(studentEnabledFilter === option.value)}
+                            className={`px-2 py-1.5 text-xs font-bold border-r last:border-r-0 transition-colors ${studentEnabledFilter === option.value ? '' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'}`}
                           >
                             {option.label}
                           </button>
@@ -871,7 +1034,7 @@
                       <select
                         value={studentSortMode}
                         onChange={(e) => setStudentSortMode(e.target.value)}
-                        className="border rounded p-1.5 text-xs bg-gray-50 focus:ring-2 focus:ring-blue-400 focus:outline-none"
+                        className="border rounded p-1.5 text-xs bg-gray-50 focus:ring-2 focus:ring-gray-300 focus:outline-none"
                       >
                         <option value="name">あいうえお順</option>
                         <option value="created">登録順</option>
@@ -901,7 +1064,12 @@
                             className="min-w-0 flex flex-1 items-center gap-2 text-left"
                           >
                             <span className="w-4 text-xs text-gray-400">{studentExpanded ? '▼' : '▶'}</span>
-                            <h3 className={`font-bold text-lg truncate ${studentCompleted ? 'text-gray-500' : 'text-blue-900'}`}>{displayName}</h3>
+                            <h3
+                              style={!studentCompleted ? { color: currentConfig.theme } : {}}
+                              className={`font-bold text-lg truncate ${studentCompleted ? 'text-gray-500' : ''}`}
+                            >
+                              {displayName}
+                            </h3>
                           </button>
                           <div className="flex flex-wrap items-center justify-end gap-2">
                             <button
@@ -916,12 +1084,18 @@
                               type="button"
                               onClick={() => toggleStudentEnabled(student)}
                               aria-pressed={studentEnabled}
-                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${studentEnabled ? 'bg-blue-600' : 'bg-gray-300'}`}
+                              style={studentEnabled ? { backgroundColor: currentConfig.theme } : {}}
+                              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${studentEnabled ? '' : 'bg-gray-300'}`}
                               title={studentEnabled ? '集計対象' : '集計対象外'}
                             >
                               <span className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition-transform ${studentEnabled ? 'translate-x-5' : 'translate-x-0.5'}`}></span>
                             </button>
-                            <span className={`text-[10px] font-bold w-16 ${studentEnabled ? 'text-blue-600' : 'text-gray-400'}`}>{studentEnabled ? '集計対象' : '集計対象外'}</span>
+                            <span
+                              style={studentEnabled ? { color: currentConfig.theme } : {}}
+                              className={`text-[10px] font-bold w-16 ${studentEnabled ? '' : 'text-gray-400'}`}
+                            >
+                              {studentEnabled ? '集計対象' : '集計対象外'}
+                            </span>
                             <button onClick={() => deleteStudent(student.id)} className="text-red-400 hover:text-red-600 p-1 transition-colors"><IconTrash /></button>
                           </div>
                         </div>
@@ -941,7 +1115,7 @@
                                         <select 
                                           value={curSkills[skill]} 
                                           onChange={(e) => updateSkill(student, skill, false, parseInt(e.target.value))} 
-                                          className="border border-gray-300 rounded px-1 py-1 text-sm bg-white text-center w-12 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                                          className="border border-gray-300 rounded px-1 py-1 text-sm bg-white text-center w-12 focus:ring-1 focus:ring-gray-300 focus:outline-none"
                                         >
                                           {[...Array(maxLv)].map((_, i) => <option key={i+1} value={i+1}>{i+1}</option>)}
                                         </select>
@@ -950,11 +1124,12 @@
                                       <span className="text-gray-300 mb-1.5 text-xs">→</span>
                                       
                                       <div className="flex flex-col items-center">
-                                        <span className="text-[10px] text-blue-600 font-medium mb-0.5">目標</span>
+                                        <span style={{ color: currentConfig.theme }} className="text-[10px] font-medium mb-0.5">目標</span>
                                         <select 
                                           value={tgtSkills[skill]} 
                                           onChange={(e) => updateSkill(student, skill, true, parseInt(e.target.value))} 
-                                          className="border border-blue-300 rounded px-1 py-1 text-sm bg-blue-50 font-bold text-blue-700 text-center w-12 focus:ring-1 focus:ring-blue-500 focus:outline-none"
+                                          style={{ borderColor: themeBorder, backgroundColor: themeSoft, color: currentConfig.theme }}
+                                          className="border rounded px-1 py-1 text-sm font-bold text-center w-12 focus:ring-1 focus:ring-gray-300 focus:outline-none"
                                         >
                                           {[...Array(maxLv)].map((_, i) => <option key={i+1} value={i+1}>{i+1}</option>)}
                                         </select>
@@ -966,7 +1141,7 @@
                             </div>
 
                             <div className="mt-4 pt-3 border-t">
-                              <div className="text-xs text-gray-500 mb-2">目標達成に必要な素材</div>
+                              <div className="text-xs text-gray-500 mb-2">目標達成に必要な{currentConfig.materialLabel}</div>
                               {reqMats.length === 0 ? (
                                 <div className="text-sm text-gray-400">必要な素材はありません</div>
                               ) : (
@@ -1006,7 +1181,8 @@
                   href="https://schaledb.com/"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline font-bold mx-1"
+                  style={{ color: currentConfig.theme }}
+                  className="hover:underline font-bold mx-1"
                 >
                   Schale DB
                 </a>
