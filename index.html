@@ -328,6 +328,41 @@
     };
 
     const withAlpha = (hexColor, alphaHex) => `${hexColor}${alphaHex}`;
+    const DISPLAY_PREFS_STORAGE_KEY = "ba-display-prefs-v1";
+    const DEFAULT_SORT_CONFIG = { key: "default", direction: "asc" };
+    const DEFAULT_GRADE_FILTER = { "初級": true, "中級": true, "上級": true, "最上級": true };
+    const SORT_KEYS = ["default", "name", "required", "owned", "difference"];
+    const SORT_DIRECTIONS = ["asc", "desc"];
+    const STUDENT_SORT_MODES = ["name", "created"];
+    const STUDENT_ENABLED_FILTERS = ["all", "enabled", "disabled"];
+
+    const readDisplayPrefs = () => {
+      try {
+        return JSON.parse(localStorage.getItem(DISPLAY_PREFS_STORAGE_KEY)) || {};
+      } catch (err) {
+        console.warn("Display preferences read failed:", err);
+        localStorage.removeItem(DISPLAY_PREFS_STORAGE_KEY);
+        return {};
+      }
+    };
+
+    const normalizeSortConfig = (value) => {
+      if (!value || !SORT_KEYS.includes(value.key) || !SORT_DIRECTIONS.includes(value.direction)) {
+        return DEFAULT_SORT_CONFIG;
+      }
+      return { key: value.key, direction: value.direction };
+    };
+
+    const normalizeGradeFilter = (value) => {
+      return GRADES.reduce((acc, grade) => {
+        acc[grade] = typeof value?.[grade] === "boolean" ? value[grade] : DEFAULT_GRADE_FILTER[grade];
+        return acc;
+      }, {});
+    };
+
+    const normalizeOneOf = (value, allowedValues, fallback) => {
+      return allowedValues.includes(value) ? value : fallback;
+    };
 
     function App() {
       const [user, setUser] = useState(null);
@@ -337,15 +372,17 @@
       const [xUsername, setXUsername] = useState("");
       const [appMode, setAppMode] = useState('ooparts');
       const [activeTab, setActiveTab] = useState('inventory');
+      const [isAboutOpen, setIsAboutOpen] = useState(false);
       const [students, setStudents] = useState([]);
       const [inventory, setInventory] = useState({ items: {}, updatedAt: null });
       const [importText, setImportText] = useState("");
+      const [storedDisplayPrefs] = useState(readDisplayPrefs);
       
-      const [sortConfig, setSortConfig] = useState({ key: 'default', direction: 'asc' });
-      const [gradeFilter, setGradeFilter] = useState({ '初級': true, '中級': true, '上級': true, '最上級': true });
-      const [studentSortMode, setStudentSortMode] = useState('name');
-      const [studentEnabledFilter, setStudentEnabledFilter] = useState('all');
-      const [hideCompletedStudents, setHideCompletedStudents] = useState(false);
+      const [sortConfig, setSortConfig] = useState(() => normalizeSortConfig(storedDisplayPrefs.dashboardSort));
+      const [gradeFilter, setGradeFilter] = useState(() => normalizeGradeFilter(storedDisplayPrefs.dashboardGradeFilter));
+      const [studentSortMode, setStudentSortMode] = useState(() => normalizeOneOf(storedDisplayPrefs.studentSortMode, STUDENT_SORT_MODES, "name"));
+      const [studentEnabledFilter, setStudentEnabledFilter] = useState(() => normalizeOneOf(storedDisplayPrefs.studentEnabledFilter, STUDENT_ENABLED_FILTERS, "all"));
+      const [hideCompletedStudents, setHideCompletedStudents] = useState(() => storedDisplayPrefs.hideCompletedStudents === true);
       const [expandedStudentIds, setExpandedStudentIds] = useState({});
 
       const [masterData, setMasterData] = useState(null);
@@ -359,11 +396,23 @@
         document.title = currentConfig.title;
       }, [currentConfig.title]);
 
+      useEffect(() => {
+        try {
+          localStorage.setItem(DISPLAY_PREFS_STORAGE_KEY, JSON.stringify({
+            dashboardSort: sortConfig,
+            dashboardGradeFilter: gradeFilter,
+            studentSortMode,
+            studentEnabledFilter,
+            hideCompletedStudents
+          }));
+        } catch (err) {
+          console.warn("Display preferences write failed:", err);
+        }
+      }, [sortConfig, gradeFilter, studentSortMode, studentEnabledFilter, hideCompletedStudents]);
+
       const switchAppMode = (mode) => {
         setAppMode(mode);
         setImportText("");
-        setSortConfig({ key: 'default', direction: 'asc' });
-        setGradeFilter({ '初級': true, '中級': true, '上級': true, '最上級': true });
       };
 
       const loginWithX = async () => {
@@ -694,7 +743,7 @@
       const toggleStudentExpanded = (studentId) => {
         setExpandedStudentIds(prev => ({
           ...prev,
-          [studentId]: prev[studentId] === false
+          [studentId]: prev[studentId] !== true
         }));
       };
 
@@ -994,9 +1043,6 @@
             <button onClick={() => setActiveTab('inventory')} style={getTabStyle('inventory')} className={`flex-1 p-3 flex justify-center items-center gap-2 border-b-2 ${activeTab === 'inventory' ? 'font-bold' : 'border-transparent text-gray-500'}`}>
               <IconPackage /> 所持数
             </button>
-            <button onClick={() => setActiveTab('about')} style={getTabStyle('about')} className={`flex-1 p-3 flex justify-center items-center gap-2 border-b-2 ${activeTab === 'about' ? 'font-bold' : 'border-transparent text-gray-500'}`}>
-              <IconInfo /> このアプリ
-            </button>
           </div>
 
           <main className="flex-1 overflow-y-auto p-4 max-w-3xl mx-auto w-full">
@@ -1226,7 +1272,7 @@
                     const reqMats = calcRequirements(student);
                     const studentEnabled = student.enabled !== false;
                     const studentCompleted = student.completed === true;
-                    const studentExpanded = expandedStudentIds[student.id] !== false;
+                    const studentExpanded = expandedStudentIds[student.id] === true;
                     
                     const displayName = student.name || "不明な生徒";
 
@@ -1348,109 +1394,117 @@
               </div>
             )}
 
-            {activeTab === 'about' && (
-              <div className="pb-8 animate-fade-in">
-                <h2 className="text-lg font-bold mb-4 text-gray-700">このアプリについて</h2>
+            {isAboutOpen && (
+              <div
+                className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+                role="dialog"
+                aria-modal="true"
+                aria-labelledby="about-title"
+                onClick={() => setIsAboutOpen(false)}
+              >
+                <div
+                  className="w-full max-w-3xl max-h-[88vh] overflow-hidden rounded-lg bg-white shadow-xl animate-fade-in"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between gap-3 border-b px-4 py-3">
+                    <h2 id="about-title" className="flex items-center gap-2 text-lg font-bold text-gray-700">
+                      <IconInfo /> このアプリについて
+                    </h2>
+                    <button
+                      type="button"
+                      onClick={() => setIsAboutOpen(false)}
+                      className="rounded border border-gray-300 px-3 py-1 text-sm font-bold text-gray-600 transition-colors hover:bg-gray-50"
+                    >
+                      閉じる
+                    </button>
+                  </div>
 
-                <div className="space-y-4">
-                  <section className="bg-white rounded-lg shadow p-4">
-                    <h3 className="text-sm font-bold text-gray-800 mb-2">概要</h3>
-                    <p className="text-sm text-gray-600 leading-relaxed">
-                      本アプリは、ゲーム「ブルーアーカイブ」の生徒育成に必要なオーパーツ、BD、ノートの必要数・所持数・不足数を管理する非公式ファンツールです。非商用で運用し、公式サービスであるかのような表示や表現を避けています。
-                    </p>
-                  </section>
+                  <div className="max-h-[calc(88vh-58px)] overflow-y-auto p-4">
+                    <div className="space-y-5">
+                      <section>
+                        <h3 className="text-sm font-bold text-gray-800 mb-2">概要</h3>
+                        <p className="text-sm text-gray-600 leading-relaxed">
+                          本アプリは、ゲーム「ブルーアーカイブ」の生徒育成に必要なオーパーツ、BD、ノートの必要数・所持数・不足数を管理する非公式ファンツールです。非商用で運用し、公式サービスであるかのような表示や表現を避けています。
+                        </p>
+                      </section>
 
-                  <section className="bg-white rounded-lg shadow p-4">
-                    <h3 className="text-sm font-bold text-gray-800 mb-2">ゲームデータの取得元</h3>
-                    <p className="text-sm text-gray-600 leading-relaxed">
-                      生徒名、スキル育成素材、素材名などのゲームデータは
-                      <a
-                        href="https://schaledb.com/"
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        style={{ color: currentConfig.theme }}
-                        className="hover:underline font-bold mx-1"
-                      >
-                        Schale DB
-                      </a>
-                      の公開データを活用しています。取得したデータはアクセス頻度を抑えるため、ブラウザ内に最大24時間キャッシュします。データは公式情報ではなく、内容に誤りや遅れが含まれる場合があります。
-                    </p>
-                  </section>
+                      <section className="border-t pt-4">
+                        <h3 className="text-sm font-bold text-gray-800 mb-2">ゲームデータの取得元</h3>
+                        <p className="text-sm text-gray-600 leading-relaxed">
+                          生徒名、スキル育成素材、素材名などのゲームデータは
+                          <a
+                            href="https://schaledb.com/"
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            style={{ color: currentConfig.theme }}
+                            className="hover:underline font-bold mx-1"
+                          >
+                            Schale DB
+                          </a>
+                          の公開データを活用しています。取得したデータはアクセス頻度を抑えるため、ブラウザ内に最大24時間キャッシュします。データは公式情報ではなく、内容に誤りや遅れが含まれる場合があります。
+                        </p>
+                      </section>
 
-                  <section className="bg-white rounded-lg shadow p-4">
-                    <h3 className="text-sm font-bold text-gray-800 mb-2">ユーザーデータの収集・利用について</h3>
-                    <div className="space-y-2 text-sm text-gray-600 leading-relaxed">
-                      <p>
-                        本アプリでは、データ保存機能のためにFirebase AuthenticationによるXログインを使用します。ログイン時には、認証と画面表示に必要なFirebase UID、Xのユーザー名、表示名、プロフィール画像URLなどを利用します。Xのパスワードや認証用シークレットは本アプリでは取得・保存しません。
-                      </p>
-                      <p>
-                        ログイン後に入力した登録生徒、スキルの現状・目標、集計対象/育成完了の状態、所持素材数、最終更新日時は、ユーザーごとのFirebase Cloud Firestore領域に保存されます。これらのデータは、本アプリ内での保存・同期・不足数計算のために使用し、ランキング作成、広告配信、第三者提供には使用しません。
-                      </p>
-                      <p>
-                        ログインしていない状態で入力した内容はFirebaseには保存されず、この画面を開いている間だけ一時的に保持されます。再読み込みすると初期化されます。
-                      </p>
-                      <p>
-                        ブラウザのlocalStorageには、Schale DBデータのキャッシュと、ログイン表示用のXユーザー名を保存する場合があります。
-                      </p>
+                      <section className="border-t pt-4">
+                        <h3 className="text-sm font-bold text-gray-800 mb-2">ユーザーデータの収集・利用について</h3>
+                        <div className="space-y-2 text-sm text-gray-600 leading-relaxed">
+                          <p>
+                            本アプリでは、データ保存機能のためにFirebase AuthenticationによるXログインを使用します。ログイン時には、認証と画面表示に必要なFirebase UID、Xのユーザー名、表示名、プロフィール画像URLなどを利用します。Xのパスワードや認証用シークレットは本アプリでは取得・保存しません。
+                          </p>
+                          <p>
+                            ログイン後に入力した登録生徒、スキルの現状・目標、集計対象/育成完了の状態、所持素材数、最終更新日時は、ユーザーごとのFirebase Cloud Firestore領域に保存されます。これらのデータは、本アプリ内での保存・同期・不足数計算のために使用し、ランキング作成、広告配信、第三者提供には使用しません。
+                          </p>
+                          <p>
+                            ログインしていない状態で入力した内容はFirebaseには保存されず、この画面を開いている間だけ一時的に保持されます。再読み込みすると初期化されます。
+                          </p>
+                          <p>
+                            ブラウザのlocalStorageには、Schale DBデータのキャッシュ、ログイン表示用のXユーザー名、育成目標や不足確認のフィルター・並べ替え設定を保存する場合があります。
+                          </p>
+                        </div>
+                      </section>
+
+                      <section className="border-t pt-4">
+                        <h3 className="text-sm font-bold text-gray-800 mb-2">外部サービス・外部送信について</h3>
+                        <div className="space-y-2 text-sm text-gray-600 leading-relaxed">
+                          <p>
+                            本アプリは、認証とデータ保存にFirebase、ログインにX、ゲームデータ取得にSchale DBおよびGitHub Rawを使用します。これらの外部サービスには、各機能の提供に必要な範囲で通信が発生します。
+                          </p>
+                          <p>
+                            現時点で、本アプリ独自の広告配信、アフィリエイト、アクセス解析ツールは実装していません。
+                          </p>
+                        </div>
+                      </section>
+
+                      <section className="border-t pt-4">
+                        <h3 className="text-sm font-bold text-gray-800 mb-2">権利表記</h3>
+                        <p className="text-sm text-gray-600 leading-relaxed">
+                          ブルーアーカイブ、ゲーム内情報、画像、アセット等の所有権および著作権は、それぞれの権利者に帰属します。本アプリはNexon、Nexon GamesおよびYostarとは一切関係ありません。Schale DBはNexon、Nexon GamesおよびYostarとは一切関係ありません。
+                        </p>
+                      </section>
+
+                      <section className="border-t pt-4">
+                        <h3 className="text-sm font-bold text-gray-800 mb-2">運用方針</h3>
+                        <p className="text-sm text-gray-600 leading-relaxed">
+                          Schale DBまたは権利者から削除、修正、停止などの要請があった場合は、速やかに対応します。Schale DBの画像、アイコン、音声などのアセットは、本アプリでは使用しません。
+                        </p>
+                      </section>
                     </div>
-                  </section>
-
-                  <section className="bg-white rounded-lg shadow p-4">
-                    <h3 className="text-sm font-bold text-gray-800 mb-2">外部サービス・外部送信について</h3>
-                    <div className="space-y-2 text-sm text-gray-600 leading-relaxed">
-                      <p>
-                        本アプリは、認証とデータ保存にFirebase、ログインにX、ゲームデータ取得にSchale DBおよびGitHub Rawを使用します。これらの外部サービスには、各機能の提供に必要な範囲で通信が発生します。
-                      </p>
-                      <p>
-                        現時点で、本アプリ独自の広告配信、アフィリエイト、アクセス解析ツールは実装していません。
-                      </p>
-                    </div>
-                  </section>
-
-                  <section className="bg-white rounded-lg shadow p-4">
-                    <h3 className="text-sm font-bold text-gray-800 mb-2">権利表記</h3>
-                    <p className="text-sm text-gray-600 leading-relaxed">
-                      ブルーアーカイブ、ゲーム内情報、画像、アセット等の所有権および著作権は、それぞれの権利者に帰属します。本アプリはNexon、Nexon GamesおよびYostarとは一切関係ありません。Schale DBはNexon、Nexon GamesおよびYostarとは一切関係ありません。
-                    </p>
-                  </section>
-
-                  <section className="bg-white rounded-lg shadow p-4">
-                    <h3 className="text-sm font-bold text-gray-800 mb-2">運用方針</h3>
-                    <p className="text-sm text-gray-600 leading-relaxed">
-                      Schale DBまたは権利者から削除、修正、停止などの要請があった場合は、速やかに対応します。Schale DBの画像、アイコン、音声などのアセットは、本アプリでは使用しません。
-                    </p>
-                  </section>
+                  </div>
                 </div>
               </div>
             )}
             
           </main>
           <footer className="bg-white border-t px-4 py-3 text-[11px] text-gray-500">
-            <div className="max-w-3xl mx-auto leading-relaxed space-y-1">
-              <p>
-                ゲームデータは
-                <a
-                  href="https://schaledb.com/"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  style={{ color: currentConfig.theme }}
-                  className="hover:underline font-bold mx-1"
-                >
-                  Schale DB
-                </a>
-                の公開データを活用しています。
-                <button
-                  type="button"
-                  onClick={() => setActiveTab('about')}
-                  style={{ color: currentConfig.theme }}
-                  className="hover:underline font-bold ml-2"
-                >
-                  このアプリについて
-                </button>
-              </p>
-              <p>
-                ブルーアーカイブ、ゲーム内情報、画像、アセット等の所有権および著作権は、それぞれの権利者に帰属します。本アプリはNexon、Nexon GamesおよびYostarとは一切関係ありません。
-              </p>
+            <div className="max-w-3xl mx-auto">
+              <button
+                type="button"
+                onClick={() => setIsAboutOpen(true)}
+                style={{ color: currentConfig.theme }}
+                className="inline-flex items-center gap-1 hover:underline font-bold"
+              >
+                <IconInfo /> このアプリについて
+              </button>
             </div>
           </footer>
         </div>
