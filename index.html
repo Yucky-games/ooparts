@@ -10,6 +10,7 @@
   <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone@7.23.10/babel.min.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-check-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
 </head>
@@ -212,8 +213,10 @@
       appId: "1:488191018366:web:9bffda0a35b36c0af65f2f",
       measurementId: "G-70TKE1BMCY"
     };
+    const APP_CHECK_SITE_KEY = "6LfBsNksAAAAAML56wSp11bUa1YcOmh-Lyo_BA4D";
 
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+    firebase.appCheck().activate(APP_CHECK_SITE_KEY, true);
     const auth = firebase.auth();
     const db = firebase.firestore();
     const getCollectionPath = (userId, colName) => `users/${userId}/${colName}`;
@@ -1552,7 +1555,7 @@
                         <h3 className="text-sm font-bold text-gray-800 mb-2">外部サービス・外部送信について</h3>
                         <div className="space-y-2 text-sm text-gray-600 leading-relaxed">
                           <p>
-                            本アプリは、認証とデータ保存にFirebase、ログインにX、ゲームデータ取得にSchale DBおよびGitHub Rawを使用します。これらの外部サービスには、各機能の提供に必要な範囲で通信が発生します。
+                            本アプリは、認証とデータ保存にFirebase、ログインにX、不正利用防止にFirebase App CheckおよびGoogle reCAPTCHA、ゲームデータ取得にSchale DBおよびGitHub Rawを使用します。これらの外部サービスには、各機能の提供に必要な範囲で通信が発生します。
                           </p>
                           <p>
                             現時点で、本アプリ独自の広告配信、アフィリエイト、アクセス解析ツールは実装していません。
