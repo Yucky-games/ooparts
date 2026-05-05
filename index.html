@@ -336,7 +336,7 @@
     const DEFAULT_GRADE_FILTER = { "初級": true, "中級": true, "上級": true, "最上級": true };
     const SORT_KEYS = ["default", "name", "required", "owned", "difference"];
     const SORT_DIRECTIONS = ["asc", "desc"];
-    const STUDENT_SORT_MODES = ["name", "created"];
+    const STUDENT_SORT_MODES = ["name", "createdAsc", "createdDesc"];
     const STUDENT_ENABLED_FILTERS = ["all", "enabled", "disabled"];
 
     const readDisplayPrefs = () => {
@@ -364,6 +364,7 @@
     };
 
     const normalizeOneOf = (value, allowedValues, fallback) => {
+      if (value === "created") return "createdAsc";
       return allowedValues.includes(value) ? value : fallback;
     };
 
@@ -979,13 +980,14 @@
         return true;
       });
       const sortedStudents = [...filteredStudents].sort((a, b) => {
-        if (studentSortMode === 'created') {
+        if (studentSortMode === 'createdAsc' || studentSortMode === 'createdDesc') {
           const aTime = getCreatedAtMillis(a);
           const bTime = getCreatedAtMillis(b);
-          if (aTime !== null && bTime !== null && aTime !== bTime) return aTime - bTime;
+          const direction = studentSortMode === 'createdAsc' ? 1 : -1;
+          if (aTime !== null && bTime !== null && aTime !== bTime) return (aTime - bTime) * direction;
           if (aTime !== null && bTime === null) return 1;
           if (aTime === null && bTime !== null) return -1;
-          return (a.orderIndex || 0) - (b.orderIndex || 0);
+          return ((a.orderIndex || 0) - (b.orderIndex || 0)) * direction;
         }
         return (a.name || '').localeCompare(b.name || '', 'ja');
       });
@@ -1347,7 +1349,8 @@
                         className="border rounded p-1.5 text-xs bg-gray-50 focus:ring-2 focus:ring-gray-300 focus:outline-none"
                       >
                         <option value="name">あいうえお順</option>
-                        <option value="created">登録順</option>
+                        <option value="createdAsc">登録昇順</option>
+                        <option value="createdDesc">登録降順</option>
                       </select>
                     </div>
                   </div>
