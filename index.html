@@ -334,10 +334,11 @@
     const DISPLAY_PREFS_STORAGE_KEY = "ba-display-prefs-v1";
     const DEFAULT_SORT_CONFIG = { key: "default", direction: "asc" };
     const DEFAULT_GRADE_FILTER = { "初級": true, "中級": true, "上級": true, "最上級": true };
+    const DEFAULT_BD_NOTE_TYPE_FILTER = { bd: true, note: true };
     const SORT_KEYS = ["default", "name", "required", "owned", "difference"];
     const SORT_DIRECTIONS = ["asc", "desc"];
     const STUDENT_SORT_MODES = ["name", "createdAsc", "createdDesc"];
-    const STUDENT_ENABLED_FILTERS = ["all", "enabled", "disabled"];
+    const STUDENT_ENABLED_FILTERS = ["all", "enabled", "disabled", "completed"];
 
     const readDisplayPrefs = () => {
       try {
@@ -363,9 +364,23 @@
       }, {});
     };
 
+    const normalizeBdNoteTypeFilter = (value) => {
+      return BD_NOTE_TYPES.reduce((acc, type) => {
+        acc[type.key] = typeof value?.[type.key] === "boolean" ? value[type.key] : DEFAULT_BD_NOTE_TYPE_FILTER[type.key];
+        return acc;
+      }, {});
+    };
+
     const normalizeOneOf = (value, allowedValues, fallback) => {
-      if (value === "created") return "createdAsc";
       return allowedValues.includes(value) ? value : fallback;
+    };
+
+    const normalizeStudentSortMode = (value) => {
+      return normalizeOneOf(value === "created" ? "createdAsc" : value, STUDENT_SORT_MODES, "name");
+    };
+
+    const getBdNoteMaterialType = (matName) => {
+      return BD_NOTE_TYPES.find(type => matName.includes(type.title))?.key || null;
     };
 
     const normalizeStudentSearchText = (value = "") => {
@@ -393,9 +408,10 @@
       
       const [sortConfig, setSortConfig] = useState(() => normalizeSortConfig(storedDisplayPrefs.dashboardSort));
       const [gradeFilter, setGradeFilter] = useState(() => normalizeGradeFilter(storedDisplayPrefs.dashboardGradeFilter));
-      const [studentSortMode, setStudentSortMode] = useState(() => normalizeOneOf(storedDisplayPrefs.studentSortMode, STUDENT_SORT_MODES, "name"));
+      const [bdNoteTypeFilter, setBdNoteTypeFilter] = useState(() => normalizeBdNoteTypeFilter(storedDisplayPrefs.dashboardBdNoteTypeFilter));
+      const [studentSortMode, setStudentSortMode] = useState(() => normalizeStudentSortMode(storedDisplayPrefs.studentSortMode));
       const [studentEnabledFilter, setStudentEnabledFilter] = useState(() => normalizeOneOf(storedDisplayPrefs.studentEnabledFilter, STUDENT_ENABLED_FILTERS, "all"));
-      const [hideCompletedStudents, setHideCompletedStudents] = useState(() => storedDisplayPrefs.hideCompletedStudents === true);
+      const [hideCompletedStudents, setHideCompletedStudents] = useState(() => typeof storedDisplayPrefs.hideCompletedStudents === "boolean" ? storedDisplayPrefs.hideCompletedStudents : true);
       const [expandedStudentIds, setExpandedStudentIds] = useState({});
 
       const [masterData, setMasterData] = useState(null);
@@ -414,6 +430,7 @@
           localStorage.setItem(DISPLAY_PREFS_STORAGE_KEY, JSON.stringify({
             dashboardSort: sortConfig,
             dashboardGradeFilter: gradeFilter,
+            dashboardBdNoteTypeFilter: bdNoteTypeFilter,
             studentSortMode,
             studentEnabledFilter,
             hideCompletedStudents
@@ -421,7 +438,7 @@
         } catch (err) {
           console.warn("Display preferences write failed:", err);
         }
-      }, [sortConfig, gradeFilter, studentSortMode, studentEnabledFilter, hideCompletedStudents]);
+      }, [sortConfig, gradeFilter, bdNoteTypeFilter, studentSortMode, studentEnabledFilter, hideCompletedStudents]);
 
       const switchAppMode = (mode) => {
         setAppMode(mode);
@@ -919,6 +936,13 @@
           return grade ? gradeFilter[grade] : true;
         });
 
+        if (appMode === 'bdnotes') {
+          data = data.filter(item => {
+            const type = getBdNoteMaterialType(item.name);
+            return type ? bdNoteTypeFilter[type] : true;
+          });
+        }
+
         data.sort((a, b) => {
           if (sortConfig.key === 'default') {
             return getMaterialOrder(a.name, currentConfig.materialOrder) - getMaterialOrder(b.name, currentConfig.materialOrder);
@@ -974,6 +998,7 @@
       const filteredStudents = students.filter(student => {
         const studentEnabled = student.enabled !== false;
         const studentCompleted = student.completed === true;
+        if (studentEnabledFilter === 'completed') return studentCompleted;
         if (hideCompletedStudents && studentCompleted) return false;
         if (studentEnabledFilter === 'enabled' && !studentEnabled) return false;
         if (studentEnabledFilter === 'disabled' && studentEnabled) return false;
@@ -1085,20 +1110,43 @@
                 <h2 className="text-lg font-bold mb-4 text-gray-700">{currentConfig.dashboardTitle}</h2>
 
                 <div className="bg-white p-4 rounded-lg shadow mb-4">
-                  <div className="text-sm font-bold text-gray-700 mb-2">表示する素材グレード</div>
-                  <div className="flex flex-wrap gap-4">
-                    {GRADES.map(grade => (
-                      <label key={grade} className="flex items-center gap-1 cursor-pointer select-none">
-                        <input 
-                          type="checkbox" 
-                          checked={gradeFilter[grade]} 
-                          onChange={(e) => setGradeFilter({...gradeFilter, [grade]: e.target.checked})}
-                          style={{ accentColor: currentConfig.theme }}
-                          className="w-4 h-4 rounded border-gray-300"
-                        />
-                        <span className="text-sm">{grade}</span>
-                      </label>
-                    ))}
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div>
+                      <div className="text-sm font-bold text-gray-700 mb-2">表示する素材グレード</div>
+                      <div className="flex flex-wrap gap-4">
+                        {GRADES.map(grade => (
+                          <label key={grade} className="flex items-center gap-1 cursor-pointer select-none">
+                            <input 
+                              type="checkbox" 
+                              checked={gradeFilter[grade]} 
+                              onChange={(e) => setGradeFilter({...gradeFilter, [grade]: e.target.checked})}
+                              style={{ accentColor: currentConfig.theme }}
+                              className="w-4 h-4 rounded border-gray-300"
+                            />
+                            <span className="text-sm">{grade}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                    {appMode === 'bdnotes' && (
+                      <div>
+                        <div className="text-sm font-bold text-gray-700 mb-2">表示する素材</div>
+                        <div className="flex flex-wrap gap-4">
+                          {BD_NOTE_TYPES.map(type => (
+                            <label key={type.key} className="flex items-center gap-1 cursor-pointer select-none">
+                              <input
+                                type="checkbox"
+                                checked={bdNoteTypeFilter[type.key]}
+                                onChange={(e) => setBdNoteTypeFilter({ ...bdNoteTypeFilter, [type.key]: e.target.checked })}
+                                style={{ accentColor: currentConfig.theme }}
+                                className="w-4 h-4 rounded border-gray-300"
+                              />
+                              <span className="text-sm">{type.shortTitle}</span>
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1327,7 +1375,8 @@
                         {[
                           { value: 'all', label: '全体' },
                           { value: 'enabled', label: '集計対象のみ' },
-                          { value: 'disabled', label: '集計対象外のみ' }
+                          { value: 'disabled', label: '集計対象外のみ' },
+                          { value: 'completed', label: '育成完了のみ' }
                         ].map(option => (
                           <button
                             key={option.value}
